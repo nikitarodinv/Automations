@@ -957,21 +957,54 @@ def run_stages(ctx: Ctx, stages: list[str], deliver: bool = True) -> str:
             ctx.report.notes.append(f"{name} stopped: {e}")
             ctx.commit()
     if deliver:
-        if ctx.campaign["review_before_delivery"] and not ctx.dry_run:
+        hold = delivery_holds(ctx)
+        if hold:
             n = len(ctx.store.drafts(ctx.cid, ["drafted"]))
-            ctx.report.notes.append(f"review_before_delivery: {n} drafts wait for you; add notes, then /autonetworker deliver")
+            ctx.report.notes.append(f"{n} drafts wait for you at drafted ({'; '.join(hold)})")
         else:
             stage_deliver(ctx)
     return finish(ctx)
 
 
+def delivery_holds(ctx: Ctx) -> list[str]:
+    """Why drafts must wait at `drafted` instead of going to the mailbox (empty = deliver)."""
+    if ctx.dry_run:
+        return []
+    out = []
+    if ctx.campaign["review_before_delivery"]:
+        out.append("review_before_delivery: add notes, then /autonetworker deliver")
+    if ctx.campaign.get("review_required"):
+        out.append("review_required: approve each run in chat, then /autonetworker deliver")
+    if (ctx.cfg.data.get("approvals") or {}).get("required", True):
+        from .approvals import approval_status
+
+        approved, changes = approval_status(ctx.cfg, ctx.store, ctx.campaign)
+        if not approved:
+            out.append("waiting for approval: " + "; ".join(changes) + f"; review the drafts, then `autonet approve {ctx.cid}` and deliver")
+    return out
+
+
 def run_campaign(cfg: Config, campaign_ref: str, *, dry_run: bool = False, limit: int | None = None,
                  db: Path | None = None, fresh: bool = False, debug: bool = False,
-                 live_jev: bool = False) -> tuple[str, Ctx]:
+                 live_jev: bool = False, scheduled: bool = False) -> tuple[str, Ctx]:
+    from .lock import run_lock
+    from .retention import prune
+
     campaign = load_campaign(resolve_campaign_path(cfg.root, campaign_ref))
     store = open_store(cfg, dry_run, db, fresh)
-    ctx = make_ctx(cfg, campaign, store, dry_run=dry_run, limit=limit, debug=debug, live_jev=live_jev)
-    text = run_stages(ctx, list(STAGES))
+    db_path = Path(str(store.path)) if str(store.path) != ":memory:" else cfg.path("db")
+    with run_lock(db_path.with_suffix(".lock")):
+        if scheduled:
+            from .schedule import scheduled_gates
+
+            gate = scheduled_gates(cfg, store, campaign)
+            if not gate.ok:
+                raise ConfigError(f"scheduled run of {campaign.id} skipped: " + " · ".join(gate.reasons))
+        pruned = prune(store, cfg, cooldown_days=campaign.limits["recontact_cooldown_days"]) if not dry_run else None
+        ctx = make_ctx(cfg, campaign, store, dry_run=dry_run, limit=limit, debug=debug, live_jev=live_jev)
+        if pruned and pruned.total:
+            ctx.report.notes.append(f"retention: removed {pruned.summary()}")
+        text = run_stages(ctx, list(STAGES))
     return text, ctx
 
 
@@ -1002,8 +1035,9 @@ def add_note(ctx: Ctx, draft_id: str, text: str) -> dict[str, Any]:
     return rec
 
 
-def mark(store: Store, ident: str, state: str) -> list[str]:
-    """mark-sent / mark-skip by draft id or prospect id. Returns the draft ids changed."""
+def mark(store: Store, ident: str, state: str, outcome: str | None = None) -> list[str]:
+    """mark-sent / mark-skip by draft id or prospect id. Returns the draft ids changed.
+    `outcome` (none | light | heavy | not_sendable) feeds the 17-of-20 quality gate."""
     drafts = [store.get_draft(ident)] if ident.startswith("d_") else []
     if ident.startswith("p_"):
         drafts = [d for d in store.drafts() if d["prospect_id"] == ident]
@@ -1016,6 +1050,8 @@ def mark(store: Store, ident: str, state: str) -> list[str]:
         store.set_state(d["campaign_id"], d["prospect_id"], "sent" if state == "sent" else "skipped", reason="marked by you")
         if state == "sent":
             store.log_contact(d["prospect_id"], d["to_email"])
+        if outcome:
+            store.set_review_outcome(d["draft_id"], outcome)
         changed.append(d["draft_id"])
     if not drafts and ident.startswith("p_") and state == "skipped":
         store.db.execute("UPDATE campaign_prospects SET state='skipped', reason='marked by you' WHERE prospect_id=?", (ident,))

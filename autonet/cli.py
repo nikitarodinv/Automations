@@ -29,6 +29,12 @@ eval_app = typer.Typer(no_args_is_help=True, help="Measure the template selector
 app.add_typer(eval_app, name="eval")
 auth_app = typer.Typer(no_args_is_help=True, help="Sign in to your mailbox for graph_draft / gmail_draft.")
 app.add_typer(auth_app, name="auth")
+schedule_app = typer.Typer(no_args_is_help=True, help="Run campaigns on their schedule through OpenClaw automations.")
+app.add_typer(schedule_app, name="schedule")
+skill_app = typer.Typer(no_args_is_help=True, help="The OpenClaw skill.")
+app.add_typer(skill_app, name="skill")
+campaign_app = typer.Typer(no_args_is_help=True, help="Create campaign files.")
+app.add_typer(campaign_app, name="campaign")
 
 DRY = typer.Option(False, "--dry-run", help="Use fixture prospects and the separate dry-run database. Nothing reaches a mailbox.")
 DB = typer.Option(None, "--db", help="Override the database path.")
@@ -94,12 +100,23 @@ def run(
     debug: bool = DEBUG,
     estimate: bool = typer.Option(False, "--estimate", help="Print the worst-case spend for this run and stop. Spends nothing."),
     live_jev: bool = typer.Option(False, "--live-jev", help="With --dry-run: ask Jev for real (costs a fraction of a cent)."),
+    scheduled: bool = typer.Option(False, "--scheduled", help="Unattended run: checks the gates, prints NO_REPLY when there's nothing to report."),
 ) -> None:
     """Run every stage in order and print the run report."""
     if estimate:
         from .estimate import estimate_text
 
         typer.echo(estimate_text(_cfg(), campaign, limit=limit, db=db))
+        return
+    if scheduled:
+        try:
+            text, ctx = run_campaign(_cfg(), campaign, limit=limit, db=db, debug=debug, scheduled=True)
+        except AutonetError as e:
+            typer.echo(str(e))          # stdout is what OpenClaw posts to your chat
+            raise typer.Exit(1)
+        from .schedule import nothing_to_report
+
+        typer.echo("NO_REPLY" if nothing_to_report(ctx.report) else text)
         return
     text, ctx = run_campaign(_cfg(), campaign, dry_run=dry_run, limit=limit, db=db, fresh=fresh, debug=debug, live_jev=live_jev)
     typer.echo(text)
@@ -141,6 +158,12 @@ def deliver(
         typer.echo("nothing waiting to deliver")
     for cid in ids:
         ctx = _ctx_for(cfg, cid, dry_run, db, store)
+        if not dry_run and (cfg.data.get("approvals") or {}).get("required", True):
+            from .approvals import approval_status
+
+            ok, changes = approval_status(cfg, store, ctx.campaign)
+            if not ok:
+                raise ConfigError(f"{cid} has unapproved changes ({'; '.join(changes)}); review the drafts, then `autonet approve {cid}`")
         delivered = stage_deliver(ctx)
         typer.echo(finish(ctx) if delivered else f"{cid}: nothing waiting to deliver")
 
@@ -201,10 +224,13 @@ def note(draft_id: str, sentence: str, dry_run: bool = DRY, db: Optional[Path] =
 def mark_sent(
     ident: Optional[str] = typer.Argument(None, help="Draft id (d_…) or prospect id (p_…)"),
     all_delivered: bool = typer.Option(False, "--all-delivered"),
+    edits: Optional[str] = typer.Option(None, "--edits", help="none | light | heavy: how much you changed it (quality gate)"),
     dry_run: bool = DRY,
     db: Optional[Path] = DB,
 ) -> None:
     """Record that you sent a draft; starts that person's re-contact cooldown."""
+    if edits not in (None, "none", "light", "heavy"):
+        raise DataError("--edits must be none, light or heavy")
     store = open_store(_cfg(), dry_run, db)
     if all_delivered:
         ids = [d["draft_id"] for d in store.drafts(states=["delivered"])]
@@ -212,16 +238,17 @@ def mark_sent(
         ids = [ident]
     else:
         raise DataError("give a draft id or --all-delivered")
-    changed = [x for i in ids for x in mark(store, i, "sent")]
+    changed = [x for i in ids for x in mark(store, i, "sent", edits)]
     typer.echo(f"marked sent: {', '.join(changed) or 'none'}")
 
 
 @app.command("mark-skip")
 @_guard
-def mark_skip(ident: str, dry_run: bool = DRY, db: Optional[Path] = DB) -> None:
+def mark_skip(ident: str, not_sendable: bool = typer.Option(False, "--not-sendable", help="The draft itself wasn't good enough (counts in the quality gate)"),
+              dry_run: bool = DRY, db: Optional[Path] = DB) -> None:
     """Drop a draft or prospect from this campaign."""
     store = open_store(_cfg(), dry_run, db)
-    typer.echo(f"skipped: {', '.join(mark(store, ident, 'skipped'))}")
+    typer.echo(f"skipped: {', '.join(mark(store, ident, 'skipped', 'not_sendable' if not_sendable else None))}")
 
 
 @app.command()
@@ -441,6 +468,8 @@ def eval_jev_cmd(
         typer.echo(f"{hit} {r['name']:24} label={r['label']:20} pick={r['pick']:20} {conf} ({r['selector']})")
     if out["agreement"] is None:
         raise DataError("Jev answered none of the cases; check the key and route")
+    open_store(cfg, False).save_eval("jev", sel.client.model, out["cases"], out["answered_by_jev"], out["agreement"],
+                                     {"calibration": out["calibration"]})
     typer.echo(f"\nagreement {out['agreement']:.0%} on {out['answered_by_jev']} of {out['cases']} cases")
     for bucket, (rate, n) in out["calibration"].items():
         typer.echo(f"  picks at {bucket}: {rate:.0%} matched ({n})")
@@ -496,6 +525,165 @@ def auth_status() -> None:
             mins = int((tok.get("expires_at", 0) - time.time()) / 60)
             refresh = "refreshable" if tok.get("refresh_token") else "no refresh token"
             typer.echo(f"{label}: signed in · access token {'valid ' + str(mins) + ' min' if mins > 0 else 'expired'} · {refresh}")
+
+
+# --------------------------------------------------------------------------- milestone 4: rollout
+@app.command()
+@_guard
+def approve(campaign: str, db: Optional[Path] = DB) -> None:
+    """Approve a campaign as it is now (campaign file, phrase bank, templates, signature).
+    Drafts are held at `drafted` whenever any of those changed since the last approval."""
+    from .approvals import approval_status, approve as do_approve
+
+    cfg = _cfg()
+    camp = load_campaign(resolve_campaign_path(cfg.root, campaign))
+    check_campaign(cfg, camp)
+    store = open_store(cfg, False, db)
+    ok, changes = approval_status(cfg, store, camp)
+    if ok:
+        typer.echo(f"{camp.id} is already approved as it is")
+        return
+    do_approve(cfg, store, camp)
+    typer.secho(f"approved {camp.id} ({'; '.join(changes)}). Held drafts: `autonet deliver {camp.id}`", fg=typer.colors.GREEN)
+
+
+@app.command()
+@_guard
+def quality(campaign: Optional[str] = typer.Option(None, "--campaign"), db: Optional[Path] = DB) -> None:
+    """The acceptance gate: of the first 20 real drafts you review, 17+ sendable as written or with light edits."""
+    from .quality import OUTCOMES, quality_report
+
+    q = quality_report(open_store(_cfg(), False, db), campaign)
+    typer.echo(f"{q['sendable']} of {q['reviewed']} reviewed drafts sendable (gate: {q['needed']} of the first {q['first']}) · {q['status']}")
+    for k, label in OUTCOMES.items():
+        if q["counts"][k]:
+            typer.echo(f"  {q['counts'][k]:3} {label}")
+    for t, (ok, n) in sorted(q["by_template"].items()):
+        typer.echo(f"  {t}: {ok}/{n} sendable")
+    if q["reviewed"] < q["first"]:
+        typer.echo("Record each draft with `mark-sent <id> --edits none|light|heavy` or `mark-skip <id> --not-sendable`.")
+
+
+@app.command()
+@_guard
+def prune(dry_run_only: bool = typer.Option(False, "--dry-run", help="Show what would go, delete nothing."), db: Optional[Path] = DB) -> None:
+    """Apply retention: undrafted prospects after 90 days, everything else after retention_days. Suppression stays."""
+    from .retention import prune as do_prune
+
+    cfg = _cfg()
+    r = do_prune(open_store(cfg, False, db), cfg, dry_run=dry_run_only)
+    typer.echo(("would remove: " if dry_run_only else "removed: ") + r.summary())
+
+
+@app.command("import-phrases")
+@_guard
+def import_phrases_cmd(xml: Path, out: Path = typer.Option(Path("phrases/imported.yaml"), "--out"),
+                       force: bool = typer.Option(False, "--force")) -> None:
+    """Convert an XML phrase list to a YAML phrase bank (once), then lint it."""
+    from .importer import import_phrases
+
+    cfg = _cfg()
+    dst = cfg.resolve(out)
+    bank = import_phrases(cfg.resolve(xml), dst, force)
+    n = sum(len(v) for v in bank["categories"].values())
+    typer.secho(f"wrote {dst}: {n} phrases in {len(bank['categories'])} categories", fg=typer.colors.GREEN)
+    errors, warnings = lint_phrases(load_phrase_bank(dst), load_templates(cfg.path("templates")))
+    for w in warnings:
+        typer.secho(f"warning: {w}", fg=typer.colors.YELLOW)
+    for e in errors:
+        typer.secho(f"lint: {e}", fg=typer.colors.YELLOW)
+    typer.echo(f"point a campaign's phrase_bank at it, then `autonet run <campaign> --dry-run --fresh`")
+
+
+@schedule_app.command("install")
+@_guard
+def schedule_install(
+    campaign: str,
+    channel: Optional[str] = typer.Option(None, "--channel", help="OpenClaw channel id (slack, telegram, ...)"),
+    to: Optional[str] = typer.Option(None, "--to", help="Delivery target, e.g. channel:C123 or user:U123"),
+    tz: Optional[str] = typer.Option(None, "--tz", help="IANA timezone, e.g. America/Chicago (default: Gateway host)"),
+    agent: Optional[str] = typer.Option(None, "--agent", help="OpenClaw agent id (outlook_draft campaigns)"),
+    apply: bool = typer.Option(False, "--apply", help="Run the openclaw command instead of printing it"),
+) -> None:
+    """Create the OpenClaw automation that runs this campaign on its `schedule`."""
+    import subprocess
+
+    from .schedule import openclaw_command, scheduled_gates, shell_line
+
+    cfg = _cfg()
+    camp = load_campaign(resolve_campaign_path(cfg.root, campaign))
+    argv = openclaw_command(cfg, camp, channel=channel, to=to, tz=tz, agent=agent)
+    gate = scheduled_gates(cfg, open_store(cfg, False), camp)
+    if not gate.ok:
+        typer.secho("until these are fixed, each scheduled run will post why it skipped:", fg=typer.colors.YELLOW)
+        for r in gate.reasons:
+            typer.echo(f"  - {r}")
+    if not apply:
+        typer.echo(shell_line(argv))
+        typer.echo("run that on the Gateway host (command jobs need operator.admin), or rerun with --apply")
+        return
+    import shutil as _sh
+
+    if not _sh.which("openclaw"):
+        raise ConfigError("openclaw is not on PATH; run the printed command on the Gateway host")
+    r = subprocess.run(argv, capture_output=True, text=True)
+    typer.echo(r.stdout.strip() or r.stderr.strip())
+    if r.returncode:
+        raise typer.Exit(r.returncode)
+
+
+@schedule_app.command("remove")
+@_guard
+def schedule_remove(job_id: str, apply: bool = typer.Option(False, "--apply")) -> None:
+    """Remove an OpenClaw automation (find its id with `openclaw automations list`)."""
+    import subprocess
+
+    argv = ["openclaw", "automations", "remove", job_id]
+    if not apply:
+        typer.echo(" ".join(argv))
+        return
+    r = subprocess.run(argv, capture_output=True, text=True)
+    typer.echo(r.stdout.strip() or r.stderr.strip())
+    if r.returncode:
+        raise typer.Exit(r.returncode)
+
+
+@skill_app.command("install")
+@_guard
+def skill_install(dir: Optional[Path] = typer.Option(None, "--dir", help="Default ~/.openclaw/workspace/skills/autonetworker"),
+                  force: bool = typer.Option(False, "--force")) -> None:
+    """Install SKILL.md (with this project's path filled in) and show the openclaw.json env block."""
+    from .setup_tools import install_skill, openclaw_env_snippet
+
+    target, changed = install_skill(_cfg(), dir, force)
+    typer.echo(f"{'installed' if changed else 'already up to date'}: {target}")
+    typer.echo("\nAdd your keys to ~/.openclaw/openclaw.json (injected only for runs on the host, not in a sandbox):\n")
+    typer.echo(openclaw_env_snippet())
+
+
+@campaign_app.command("new")
+@_guard
+def campaign_new(campaign_id: str, base: str = typer.Option("ib-alumni-fall26", "--from")) -> None:
+    """Start a campaign file from an existing one. Edit it, validate it, then `autonet approve`."""
+    from .setup_tools import new_campaign
+
+    path = new_campaign(_cfg(), campaign_id, base)
+    typer.echo(f"wrote {path}\nedit targeting and sender, then: autonet validate {campaign_id} · autonet run {campaign_id} --dry-run --fresh · autonet approve {campaign_id}")
+
+
+@app.command()
+@_guard
+def doctor() -> None:
+    """Offline health check: config, campaigns, keys, Jev eval, mailbox tokens, skill, schedule gates."""
+    from .setup_tools import doctor as run_doctor
+
+    marks = {"ok": typer.colors.GREEN, "warn": typer.colors.YELLOW, "fail": typer.colors.RED}
+    checks = run_doctor(_cfg())
+    for c in checks:
+        typer.secho(f"{c.level:4} ", fg=marks[c.level], nl=False)
+        typer.echo(f"{c.what}" + (f": {c.detail}" if c.detail else ""))
+    if any(c.level == "fail" for c in checks):
+        raise typer.Exit(1)
 
 
 def main() -> None:  # pragma: no cover

@@ -46,7 +46,13 @@ budgets:                          # monthly ceilings, checked against the ledger
   provider_monthly: {}
   search_monthly: 1000            # web searches across all campaigns (Brave's free tier is limited; check yours)
 
-retention_days: 365
+retention_days: 365               # drafts, decisions and the ledger; undrafted prospects go after 90 days
+
+approvals:
+  required: true                  # new or changed campaigns, phrase banks and templates hold drafts until `autonet approve`
+
+scheduling:
+  require_jev_eval: true          # scheduled runs need `autonet eval jev` with 30+ cases and ≥85% agreement
 
 dry_run:
   prospects: fixtures/dryrun/prospects.jsonl

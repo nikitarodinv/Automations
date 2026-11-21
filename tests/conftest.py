@@ -36,6 +36,7 @@ def _no_real_network_or_keys(monkeypatch):
 def cfg(tmp_path: Path) -> Config:
     """Repo config, but all state (databases, out/, logs/) goes to a temp folder."""
     c = Config.load(root=REPO)
+    c.data["approvals"] = {"required": False}   # the approval gate has its own tests (test_rollout.py)
     c.data["paths"] = {
         **c.data["paths"],
         "db": str(tmp_path / "autonet.db"),

@@ -4,7 +4,7 @@ Turns a campaign file (keywords, companies, filters) into personalized networkin
 drafts waiting for your review. Backend for the `autonetworker` OpenClaw skill. **It never sends
 email.** Full design: the Autonetworker technical spec (Nov 21, 2026).
 
-## Status: milestones 1, 2 and 3 done
+## Status: milestones 1–4 done
 
 | Area | Works now | Later |
 | --- | --- | --- |
@@ -17,6 +17,7 @@ email.** Full design: the Autonetworker technical spec (Nov 21, 2026).
 | Stage 6, draft | All lint checks, signature, opt-out line; optional polish (one Claude call, rejected if it adds a name or number, changes >25%, or touches the greeting) | |
 | Delivery | `eml`, `markdown`, `outlook_draft` (jsonl + ack), `graph_draft` (device-code sign-in, Mail.ReadWrite only), `gmail_draft` (browser sign-in) | |
 | Providers | YAML manifests, `@register` classes, entry-point plugins; `autonet provider list / new / record / test / smoke` | |
+| Rollout | Approval gates, scheduled runs through OpenClaw, Jev-eval gate, run lock, quality gate (17 of 20), retention, `import-phrases`, `campaign new`, `skill install`, `doctor` | Follow-ups, reply detection (v2) |
 
 `--dry-run` uses fake prospects and fake finder results from `fixtures/dryrun/`, with a separate
 database (`data/dryrun.db`). It makes no network calls unless you add `--live-jev`.
@@ -94,6 +95,35 @@ changes more than 25% of the text, runs over the length limits, or changes the g
 - Each mailbox draft ID is saved before the next draft is created, so a crash mid-delivery never
   creates the same draft twice.
 
+## Going live (milestone 4)
+
+1. **Install the skill:** `uv run autonet skill install` writes
+   `~/.openclaw/workspace/skills/autonetworker/SKILL.md` with this project's path and prints the
+   `openclaw.json` block for your keys.
+2. **Check everything:** `uv run autonet doctor` (offline: config, campaigns, keys, Jev eval, mailbox
+   token permissions, skill, schedule gates, quality gate).
+3. **Approve:** a new campaign, or any change to its campaign file, phrase bank, templates or
+   signature, holds drafts at `drafted`. Preview with `--dry-run --fresh`, then
+   `uv run autonet approve <campaign>`; held drafts go out with `autonet deliver <campaign>`.
+   `review_required: true` in a campaign holds every run for your approval.
+4. **Measure quality:** for the first 20 real drafts, record each outcome with
+   `mark-sent <id> --edits none|light|heavy` or `mark-skip <id> --not-sendable`. `autonet quality`
+   shows progress against the gate (17 of 20 sendable as written or with light edits).
+5. **Measure Jev:** `autonet eval jev` on 30+ labeled cases. Results are stored.
+6. **Schedule:** add `schedule: "30 8 * * 1-5"` to the campaign, then
+   `uv run autonet schedule install <campaign> --channel slack --to channel:C123 --tz America/Chicago`.
+   It prints the `openclaw automations create …` command (command jobs need `operator.admin` on the
+   Gateway); `--apply` runs it. Each run posts its report to your channel, posts nothing when there's
+   nothing new (`NO_REPLY`), and skips itself, saying why, until the campaign is approved and Jev's
+   last eval shows 85%+ agreement on 30+ cases (`scheduling.require_jev_eval: false` turns that gate off).
+   `outlook_draft` campaigns get an agent-turn job instead, since only the agent can call the mail tool.
+
+Only one run happens at a time (a lock next to the database). Retention runs at the start of every
+real run, and on demand with `autonet prune [--dry-run]`: prospects never drafted go after 90 days,
+everything else after `retention_days`; suppression entries are never removed.
+
+Already keep phrases in XML? `uv run autonet import-phrases phrases.xml --out phrases/mine.yaml`.
+
 ## A run from your own list
 
 1. Put people in `lists/contacts.csv` (gitignored). Columns are matched by name; see
@@ -140,7 +170,8 @@ Add `--dry-run` to any of them to work against the dry-run database.
 
 ```text
 autonet/          cli, pipeline (stages), campaign, matching, selector, jev, emails, research, search, fetch,
-                  llm, compose, draft, store (SQLite), ledger, pool, http, estimate,
+                  llm, compose, draft, store (SQLite), ledger, pool, http, estimate, approvals,
+                  schedule, lock, retention, quality, importer, setup_tools,
                   delivery/ (eml, markdown, outlook_mcp, graph, gmail, auth)
 autonet/providers/ base, registry, manifest, generic_http, contract, tools,
                   hunter, pdl, apollo, csv_file, urls, fixture
@@ -154,7 +185,7 @@ phrases/          networking.yaml
 fixtures/dryrun/  fake prospects and finder results for --dry-run
 skill/SKILL.md    copy to ~/.openclaw/workspace/skills/autonetworker/
 tests/            unit/, test_pipeline.py (acceptance checks), test_pool_providers.py, test_jev.py,
-                  test_research.py, test_polish_mailbox.py,
+                  test_research.py, test_polish_mailbox.py, test_rollout.py,
                   test_golden.py, golden/, fixtures/providers/ (recorded replies for the contract suite)
 ```
 
@@ -205,3 +236,16 @@ Milestone 3:
   talk, article, podcast, deal or promotion → `saw_your_work`.
 - **Robots.txt that can't be fetched (5xx or no connection) means no fetch** for that site, per RFC 9309.
 - **Polish runs only on real runs**, and is reused when a draft is rebuilt with unchanged text.
+
+Milestone 4 (the spec's build-order diagram didn't come through, so this is the rollout work its
+other sections call for):
+
+- **Approval is a fingerprint** of the campaign file, its phrase bank, its templates and the
+  signature file. Any change holds drafts at `drafted` (dry runs excepted) and `deliver` refuses until
+  `autonet approve`. The skill tells the agent to approve only on your explicit word in chat.
+- **Scheduling uses OpenClaw's own scheduler** (a command job per campaign) rather than a scheduler of
+  our own; the CLI only builds the job and enforces the gates at run time.
+- **The Jev gate reads the latest stored eval**, so a newer, smaller eval re-closes it.
+- **The quality gate counts only drafts you rated.** `mark-sent` without `--edits` isn't counted, so
+  an unrated send can't inflate the rate; it fails as soon as 4 of the first 20 are unsendable.
+- **Retention keeps contact history** for at least the re-contact cooldown, even past `retention_days`.

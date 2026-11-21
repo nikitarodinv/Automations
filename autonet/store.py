@@ -144,6 +144,22 @@ CREATE TABLE IF NOT EXISTS source_cursors (
   updated_at  TEXT NOT NULL,
   PRIMARY KEY (campaign_id, provider, key)
 );
+CREATE TABLE IF NOT EXISTS approvals (
+  campaign_id TEXT PRIMARY KEY,
+  fingerprint TEXT NOT NULL,
+  parts       TEXT NOT NULL,
+  approved_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS evals (
+  eval_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind        TEXT NOT NULL,
+  model       TEXT,
+  cases       INTEGER NOT NULL,
+  answered    INTEGER NOT NULL,
+  agreement   REAL,
+  details     TEXT,
+  ran_at      TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS ledger (
   run_id    TEXT NOT NULL,
   seq       INTEGER NOT NULL,
@@ -191,7 +207,16 @@ class Store:
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("PRAGMA foreign_keys=ON")
         self.db.executescript(SCHEMA)
+        self._migrate()
         self.db.commit()
+
+    def _migrate(self) -> None:
+        """Additive migrations for databases created by earlier versions."""
+        cols = {r[1] for r in self.db.execute("PRAGMA table_info(drafts)")}
+        if "review_outcome" not in cols:
+            self.db.execute("ALTER TABLE drafts ADD COLUMN review_outcome TEXT")   # none | light | heavy | not_sendable
+        if "reviewed_at" not in cols:
+            self.db.execute("ALTER TABLE drafts ADD COLUMN reviewed_at TEXT")
 
     def close(self) -> None:
         self.db.close()
@@ -411,14 +436,19 @@ class Store:
         now = iso()
         existing = self.get_draft(d["draft_id"])
         created = existing["created_at"] if existing else now
+        cols = ("draft_id, campaign_id, prospect_id, run_id, template_id, template_version, phrase_bank_version, "
+                "phrase_ids, hook_id, note, to_email, email_score, subject, body, lint, audit, state, delivery, "
+                "delivery_ref, created_at, updated_at, review_outcome, reviewed_at")
         self.db.execute(
-            "INSERT OR REPLACE INTO drafts VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            f"INSERT OR REPLACE INTO drafts ({cols}) VALUES ({','.join('?' * 23)})",
             (
                 d["draft_id"], d["campaign_id"], d["prospect_id"], d.get("run_id"), d["template_id"],
                 d["template_version"], d["phrase_bank_version"], _j(d["phrase_ids"]), d.get("hook_id"),
                 d.get("note"), d.get("to_email"), d.get("email_score"), d.get("subject"), d.get("body"),
                 _j(d.get("lint", {})), _j(d.get("audit", {})), d["state"], d.get("delivery"),
                 d.get("delivery_ref"), created, now,
+                d.get("review_outcome", existing.get("review_outcome") if existing else None),
+                d.get("reviewed_at", existing.get("reviewed_at") if existing else None),
             ),
         )
 
@@ -494,6 +524,31 @@ class Store:
             "INSERT OR REPLACE INTO source_cursors VALUES (?,?,?,?,?)", (campaign_id, provider, key, value, iso())
         )
         self.db.commit()
+
+    # ---------- approvals & evals ----------
+    def get_approval(self, campaign_id: str) -> dict[str, Any] | None:
+        row = self.db.execute("SELECT * FROM approvals WHERE campaign_id=?", (campaign_id,)).fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        d["parts"] = json.loads(d["parts"])
+        return d
+
+    def approve(self, campaign_id: str, fingerprint: str, parts: dict[str, str]) -> None:
+        self.db.execute("INSERT OR REPLACE INTO approvals VALUES (?,?,?,?)", (campaign_id, fingerprint, _j(parts), iso()))
+        self.db.commit()
+
+    def save_eval(self, kind: str, model: str | None, cases: int, answered: int, agreement: float | None, details: Any) -> None:
+        self.db.execute("INSERT INTO evals (kind, model, cases, answered, agreement, details, ran_at) VALUES (?,?,?,?,?,?,?)",
+                        (kind, model, cases, answered, agreement, _j(details), iso()))
+        self.db.commit()
+
+    def latest_eval(self, kind: str) -> dict[str, Any] | None:
+        row = self.db.execute("SELECT * FROM evals WHERE kind=? ORDER BY eval_id DESC LIMIT 1", (kind,)).fetchone()
+        return dict(row) if row else None
+
+    def set_review_outcome(self, draft_id: str, outcome: str) -> None:
+        self.db.execute("UPDATE drafts SET review_outcome=?, reviewed_at=? WHERE draft_id=?", (outcome, iso(), draft_id))
 
     # ---------- runs ----------
     def start_run(self, run_id: str, campaign_id: str, dry_run: bool) -> None:
