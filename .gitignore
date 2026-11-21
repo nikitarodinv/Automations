@@ -221,3 +221,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# autonetworker runtime state
+/data/
+/out/
+/logs/
+/lists/*
+!/lists/example_contacts.csv

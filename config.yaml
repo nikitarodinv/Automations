@@ -1,0 +1,31 @@
+# Global settings. Paths are relative to this file's folder.
+paths:
+  db: data/autonet.db
+  dry_run_db: data/dryrun.db      # --dry-run never touches the real database
+  out: out
+  logs: logs
+  templates: templates
+  signatures: signatures.yaml
+
+jev:
+  provider: off                   # off = rules-based fallback (milestone 1); typesafe | openrouter | cloudflare in milestone 2
+  min_confidence: 0.6
+
+limits:
+  daily_draft_cap: 25             # across all campaigns
+
+draft:
+  polish: false                   # milestone 3
+  include_opt_out_line: true
+  opt_out_line: "If you'd rather I not follow up, just let me know."
+
+budgets:                          # monthly ceilings, checked against the ledger
+  hunter_monthly: 50
+  provider_monthly: {}
+  search_monthly: 0
+
+retention_days: 365
+
+dry_run:
+  prospects: fixtures/dryrun/prospects.jsonl
+  emails: fixtures/dryrun/emails.yaml

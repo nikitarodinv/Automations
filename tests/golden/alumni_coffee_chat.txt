@@ -1,0 +1,229 @@
+# alumni_coffee_chat · template v1 · phrase bank v1
+
+=== Jordan Lee · Evercore · no hook · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=s3, greeting=g2, opener=os1, credibility=cr1, ask=a1, close=c2
+Subject: Your University junior curious about Evercore
+
+Hello Jordan,
+
+I'm a junior at Your University, and I saw that you're a fellow alum now at Evercore. I'm trying to learn as much as I can before recruiting picks up.
+
+Would you be open to a 15-minute call in the next couple of weeks?
+
+Thank you for your time, and I completely understand if you're too busy.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Jordan Lee · Evercore · hook: talk · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=s3, greeting=g2, hook=ht2, opener=os1, credibility=cr1, ask=a1, close=c2
+Subject: Your University junior curious about Evercore
+
+Hello Jordan,
+
+I came across your remarks on private credit at Midwest Finance Forum. I'm a junior at Your University, and I saw that you're a fellow alum now at Evercore. I'm trying to learn as much as I can before recruiting picks up.
+
+Would you be open to a 15-minute call in the next couple of weeks?
+
+Thank you for your time, and I completely understand if you're too busy.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Priya Shah · Goldman Sachs · no hook · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=s1, greeting=g1, opener=os3, credibility=cr1, ask=a3, close=c2
+Subject: Your University student, quick question about Goldman Sachs
+
+Hi Priya,
+
+I'm a junior at Your University exploring investment banking, and I was glad to see a fellow Your University graduate at Goldman Sachs. I'm trying to learn as much as I can before recruiting picks up.
+
+If you have 15 minutes sometime in the next few weeks, I'd be grateful to hear how you got to Goldman Sachs.
+
+Thank you for your time, and I completely understand if you're too busy.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Priya Shah · Goldman Sachs · hook: talk · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=s1, greeting=g1, hook=ht1, opener=os3, credibility=cr1, ask=a3, close=c2
+Subject: Your University student, quick question about Goldman Sachs
+
+Hi Priya,
+
+I enjoyed your talk on private credit at Midwest Finance Forum. I'm a junior at Your University exploring investment banking, and I was glad to see a fellow Your University graduate at Goldman Sachs. I'm trying to learn as much as I can before recruiting picks up.
+
+If you have 15 minutes sometime in the next few weeks, I'd be grateful to hear how you got to Goldman Sachs.
+
+Thank you for your time, and I completely understand if you're too busy.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Marcus Chen · Goldman Sachs · no hook · hints {'tone': 'formal', 'ask': 'call_15'}
+(no draft: no_phrase:subject.alumni)
+
+=== Marcus Chen · Goldman Sachs · hook: talk · hints {'tone': 'formal', 'ask': 'call_15'}
+(no draft: no_phrase:subject.alumni)
+
+=== Elena Rossi · Lazard · no hook · hints {'tone': 'formal', 'ask': 'call_15'}
+(no draft: no_phrase:subject.alumni)
+
+=== Elena Rossi · Lazard · hook: talk · hints {'tone': 'formal', 'ask': 'call_15'}
+(no draft: no_phrase:subject.alumni)
+
+=== David Park · Moelis & Company · no hook · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=s3, greeting=g1, opener=os1, credibility=cr1, ask=a1, close=c3
+Subject: Your University junior curious about Moelis & Company
+
+Hi David,
+
+I'm a junior at Your University, and I saw that you're a fellow alum now at Moelis & Company. I'm trying to learn as much as I can before recruiting picks up.
+
+Would you be open to a 15-minute call in the next couple of weeks?
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== David Park · Moelis & Company · hook: talk · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=s3, greeting=g1, hook=ht1, opener=os1, credibility=cr1, ask=a1, close=c3
+Subject: Your University junior curious about Moelis & Company
+
+Hi David,
+
+I enjoyed your talk on private credit at Midwest Finance Forum. I'm a junior at Your University, and I saw that you're a fellow alum now at Moelis & Company. I'm trying to learn as much as I can before recruiting picks up.
+
+Would you be open to a 15-minute call in the next couple of weeks?
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Sofia Martinez · Centerview Partners · no hook · hints {'tone': 'formal', 'ask': 'call_15'}
+(no draft: no_phrase:subject.alumni)
+
+=== Sofia Martinez · Centerview Partners · hook: talk · hints {'tone': 'formal', 'ask': 'call_15'}
+(no draft: no_phrase:subject.alumni)
+
+=== Aaron Brooks · PJT Partners · no hook · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=s1, greeting=g1, opener=os1, credibility=cr1, ask=a2, close=c2
+Subject: Your University student, quick question about PJT Partners
+
+Hi Aaron,
+
+I'm a junior at Your University, and I saw that you're a fellow alum now at PJT Partners. I'm trying to learn as much as I can before recruiting picks up.
+
+If you have time, I'd value 15 minutes to hear how you chose PJT Partners and what your first year on Restructuring was like.
+
+Thank you for your time, and I completely understand if you're too busy.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Aaron Brooks · PJT Partners · hook: talk · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=s1, greeting=g1, hook=ht2, opener=os1, credibility=cr1, ask=a2, close=c2
+Subject: Your University student, quick question about PJT Partners
+
+Hi Aaron,
+
+I came across your remarks on private credit at Midwest Finance Forum. I'm a junior at Your University, and I saw that you're a fellow alum now at PJT Partners. I'm trying to learn as much as I can before recruiting picks up.
+
+If you have time, I'd value 15 minutes to hear how you chose PJT Partners and what your first year on Restructuring was like.
+
+Thank you for your time, and I completely understand if you're too busy.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Hannah Kim · Evercore · no hook · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=s1, greeting=g2, opener=os3, credibility=cr2, ask=a3, close=c3
+Subject: Your University student, quick question about Evercore
+
+Hello Hannah,
+
+I'm a junior at Your University exploring investment banking, and I was glad to see a fellow Your University graduate at Evercore. I'd rather understand the day-to-day from someone doing the work than from a recruiting page.
+
+If you have 15 minutes sometime in the next few weeks, I'd be grateful to hear how you got to Evercore.
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Hannah Kim · Evercore · hook: talk · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=s1, greeting=g2, hook=ht1, opener=os3, credibility=cr2, ask=a3, close=c3
+Subject: Your University student, quick question about Evercore
+
+Hello Hannah,
+
+I enjoyed your talk on private credit at Midwest Finance Forum. I'm a junior at Your University exploring investment banking, and I was glad to see a fellow Your University graduate at Evercore. I'd rather understand the day-to-day from someone doing the work than from a recruiting page.
+
+If you have 15 minutes sometime in the next few weeks, I'd be grateful to hear how you got to Evercore.
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Ryan O'Connor · Lazard · no hook · hints {'tone': 'formal', 'ask': 'call_15'}
+(no draft: no_phrase:subject.alumni)
+
+=== Ryan O'Connor · Lazard · hook: talk · hints {'tone': 'formal', 'ask': 'call_15'}
+(no draft: no_phrase:subject.alumni)
+
+=== Grace Liu · Moelis & Company · no hook · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=s2, greeting=g2, opener=os1, credibility=cr2, ask=a3, close=c3
+Subject: Quick question from a Your University student
+
+Hello Grace,
+
+I'm a junior at Your University, and I saw that you're a fellow alum now at Moelis & Company. I'd rather understand the day-to-day from someone doing the work than from a recruiting page.
+
+If you have 15 minutes sometime in the next few weeks, I'd be grateful to hear how you got to Moelis & Company.
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Grace Liu · Moelis & Company · hook: talk · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=s2, greeting=g2, hook=ht1, opener=os1, credibility=cr2, ask=a3, close=c3
+Subject: Quick question from a Your University student
+
+Hello Grace,
+
+I enjoyed your talk on private credit at Midwest Finance Forum. I'm a junior at Your University, and I saw that you're a fellow alum now at Moelis & Company. I'd rather understand the day-to-day from someone doing the work than from a recruiting page.
+
+If you have 15 minutes sometime in the next few weeks, I'd be grateful to hear how you got to Moelis & Company.
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name

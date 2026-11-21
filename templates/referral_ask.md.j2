@@ -1,0 +1,22 @@
+---
+id: referral_ask
+version: 1
+use_when: You have been in touch before; ask whether they would refer you or point you to the right person
+requires: [prior_contact]
+max_words: 140
+slots:
+  subject:     { category: subject.referral }
+  greeting:    { category: greeting }
+  hook:        { category: hook, optional: true }
+  opener:      { category: opener.referral }
+  ask:         { category: ask.referral }
+  close:       { category: close }
+---
+{{ slot('greeting') }}
+
+{{ slot('hook') }} {{ slot('opener') }}
+
+{{ slot('ask') }}
+
+{{ slot('close') }}
+{{ signature }}

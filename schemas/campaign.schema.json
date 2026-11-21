@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Autonetworker campaign",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "sender", "targeting", "templates", "phrase_bank"],
+  "$defs": {
+    "strlist": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "seniority": { "enum": ["entry", "junior", "mid", "senior", "executive"] },
+    "company": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "domain": { "type": "string", "pattern": "^[a-z0-9.-]+\\.[a-z]{2,}$" }
+      }
+    }
+  },
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$" },
+    "description": { "type": "string" },
+    "sender": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "school", "year", "topic"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "school": { "type": "string", "minLength": 1 },
+        "year": { "type": "string", "minLength": 1 },
+        "topic": { "type": "string", "minLength": 1 },
+        "goal": { "type": "string" },
+        "past_companies": { "$ref": "#/$defs/strlist" },
+        "signature": { "type": "string", "default": "default" }
+      }
+    },
+    "targeting": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "keywords": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "any": { "$ref": "#/$defs/strlist" },
+            "all": { "$ref": "#/$defs/strlist" },
+            "exclude": { "$ref": "#/$defs/strlist" }
+          }
+        },
+        "titles": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "include": { "$ref": "#/$defs/strlist" },
+            "exclude": { "$ref": "#/$defs/strlist" }
+          }
+        },
+        "seniority": { "type": "array", "items": { "$ref": "#/$defs/seniority" } },
+        "companies": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "include": { "type": "array", "items": { "$ref": "#/$defs/company" } },
+            "exclude": { "type": "array", "items": { "$ref": "#/$defs/company" } }
+          }
+        },
+        "locations": { "$ref": "#/$defs/strlist" },
+        "schools": { "$ref": "#/$defs/strlist" },
+        "allow_eu_uk": { "type": "boolean", "default": false }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_prospects_per_run": { "type": "integer", "minimum": 1 },
+        "max_drafts_per_run": { "type": "integer", "minimum": 1 },
+        "max_per_company_per_run": { "type": "integer", "minimum": 1 },
+        "hunter_credit_budget": { "type": "number", "minimum": 0 },
+        "llm_call_budget": { "type": "integer", "minimum": 0 },
+        "search_budget": { "type": "integer", "minimum": 0 },
+        "recontact_cooldown_days": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "email": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "accept_statuses": { "type": "array", "items": { "enum": ["valid", "accept_all"] } },
+        "min_score_accept_all": { "type": "integer", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "templates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed", "fallback"],
+      "properties": {
+        "allowed": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "fallback": { "type": "string" }
+      }
+    },
+    "research": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "search_provider": { "type": "string" },
+        "max_searches_per_prospect": { "type": "integer", "minimum": 0 },
+        "max_pages": { "type": "integer", "minimum": 0 },
+        "reselect": { "type": "boolean" },
+        "blocked_domains": { "$ref": "#/$defs/strlist" }
+      }
+    },
+    "phrase_bank": { "type": "string", "minLength": 1 },
+    "source": { "enum": ["pool", "apollo", "pdl", "hunter_domain", "csv", "urls"] },
+    "source_options": {
+      "type": "object",
+      "description": "Adapter-specific settings, e.g. { path: lists/my_contacts.csv } for source: csv",
+      "properties": { "path": { "type": "string" } }
+    },
+    "delivery": { "enum": ["outlook_draft", "graph_draft", "gmail_draft", "eml", "markdown"] },
+    "review_before_delivery": { "type": "boolean" },
+    "review_required": { "type": "boolean" },
+    "schedule": { "type": "string" }
+  }
+}

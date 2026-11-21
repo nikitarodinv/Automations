@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Template front matter",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "version", "use_when", "slots"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "version": { "type": "integer", "minimum": 1 },
+    "use_when": { "type": "string" },
+    "requires": { "type": "array", "items": { "type": "string" } },
+    "max_words": { "type": "integer", "minimum": 1 },
+    "slots": {
+      "type": "object",
+      "required": ["subject"],
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["category"],
+        "properties": {
+          "category": { "type": "string" },
+          "optional": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

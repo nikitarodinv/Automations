@@ -1,0 +1,341 @@
+# industry_question · template v1 · phrase bank v1
+
+=== Jordan Lee · Evercore · no hook · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=si2, greeting=g1, opener=oi1, credibility=cr2, ask=aq2, close=c3
+Subject: Your University student with a question about Evercore
+
+Hi Jordan,
+
+I'm a junior at Your University preparing for a career in investment banking, and I've been trying to learn how teams like yours at Evercore work day to day. I'd rather understand the day-to-day from someone doing the work than from a recruiting page.
+
+If you have 15 minutes in the next couple of weeks, I'd love to ask how you would prepare for investment banking if you were in my position.
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Jordan Lee · Evercore · hook: talk · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=si2, greeting=g1, hook=ht2, opener=oi1, credibility=cr2, ask=aq2, close=c3
+Subject: Your University student with a question about Evercore
+
+Hi Jordan,
+
+I came across your remarks on private credit at Midwest Finance Forum. I'm a junior at Your University preparing for a career in investment banking, and I've been trying to learn how teams like yours at Evercore work day to day. I'd rather understand the day-to-day from someone doing the work than from a recruiting page.
+
+If you have 15 minutes in the next couple of weeks, I'd love to ask how you would prepare for investment banking if you were in my position.
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Priya Shah · Goldman Sachs · no hook · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=si1, greeting=g1, opener=oi2, credibility=cr1, ask=aq1, close=c1
+Subject: Question about investment banking at Goldman Sachs
+
+Hi Priya,
+
+I'm a Your University student interested in investment banking, and I came across your work at Goldman Sachs while researching the field. I'm trying to learn as much as I can before recruiting picks up.
+
+Would you be willing to share what you wish you'd known about investment banking before joining Goldman Sachs? Even a couple of lines would help.
+
+Thanks for considering it, and no worries if the timing doesn't work.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Priya Shah · Goldman Sachs · hook: talk · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=si1, greeting=g1, hook=ht1, opener=oi2, credibility=cr1, ask=aq1, close=c1
+Subject: Question about investment banking at Goldman Sachs
+
+Hi Priya,
+
+I enjoyed your talk on private credit at Midwest Finance Forum. I'm a Your University student interested in investment banking, and I came across your work at Goldman Sachs while researching the field. I'm trying to learn as much as I can before recruiting picks up.
+
+Would you be willing to share what you wish you'd known about investment banking before joining Goldman Sachs? Even a couple of lines would help.
+
+Thanks for considering it, and no worries if the timing doesn't work.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Marcus Chen · Goldman Sachs · no hook · hints {'tone': 'formal', 'ask': 'call_15'}
+phrases: subject=si2, greeting=g1, opener=oi2, credibility=cr2, ask=aq2, close=c2
+Subject: Your University student with a question about Goldman Sachs
+
+Hi Marcus,
+
+I'm a Your University student interested in investment banking, and I came across your work at Goldman Sachs while researching the field. I'd rather understand the day-to-day from someone doing the work than from a recruiting page.
+
+If you have 15 minutes in the next couple of weeks, I'd love to ask how you would prepare for investment banking if you were in my position.
+
+Thank you for your time, and I completely understand if you're too busy.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Marcus Chen · Goldman Sachs · hook: talk · hints {'tone': 'formal', 'ask': 'call_15'}
+phrases: subject=si2, greeting=g1, hook=ht2, opener=oi2, credibility=cr2, ask=aq2, close=c2
+Subject: Your University student with a question about Goldman Sachs
+
+Hi Marcus,
+
+I came across your remarks on private credit at Midwest Finance Forum. I'm a Your University student interested in investment banking, and I came across your work at Goldman Sachs while researching the field. I'd rather understand the day-to-day from someone doing the work than from a recruiting page.
+
+If you have 15 minutes in the next couple of weeks, I'd love to ask how you would prepare for investment banking if you were in my position.
+
+Thank you for your time, and I completely understand if you're too busy.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Elena Rossi · Lazard · no hook · hints {'tone': 'formal', 'ask': 'call_15'}
+phrases: subject=si2, greeting=g1, opener=oi3, credibility=cr2, ask=aq1, close=c1
+Subject: Your University student with a question about Lazard
+
+Hi Elena,
+
+My name is Your Name, and I'm a junior at Your University exploring a career in investment banking. I'd rather understand the day-to-day from someone doing the work than from a recruiting page.
+
+Would you be willing to share what you wish you'd known about investment banking before joining Lazard? Even a couple of lines would help.
+
+Thanks for considering it, and no worries if the timing doesn't work.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Elena Rossi · Lazard · hook: talk · hints {'tone': 'formal', 'ask': 'call_15'}
+phrases: subject=si2, greeting=g1, hook=ht2, opener=oi3, credibility=cr2, ask=aq1, close=c1
+Subject: Your University student with a question about Lazard
+
+Hi Elena,
+
+I came across your remarks on private credit at Midwest Finance Forum. My name is Your Name, and I'm a junior at Your University exploring a career in investment banking. I'd rather understand the day-to-day from someone doing the work than from a recruiting page.
+
+Would you be willing to share what you wish you'd known about investment banking before joining Lazard? Even a couple of lines would help.
+
+Thanks for considering it, and no worries if the timing doesn't work.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== David Park · Moelis & Company · no hook · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=si3, greeting=g2, opener=oi2, credibility=cr2, ask=aq1, close=c2
+Subject: Learning about your work at Moelis & Company
+
+Hello David,
+
+I'm a Your University student interested in investment banking, and I came across your work at Moelis & Company while researching the field. I'd rather understand the day-to-day from someone doing the work than from a recruiting page.
+
+Would you be willing to share what you wish you'd known about investment banking before joining Moelis & Company? Even a couple of lines would help.
+
+Thank you for your time, and I completely understand if you're too busy.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== David Park · Moelis & Company · hook: talk · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=si3, greeting=g2, hook=ht1, opener=oi2, credibility=cr2, ask=aq1, close=c2
+Subject: Learning about your work at Moelis & Company
+
+Hello David,
+
+I enjoyed your talk on private credit at Midwest Finance Forum. I'm a Your University student interested in investment banking, and I came across your work at Moelis & Company while researching the field. I'd rather understand the day-to-day from someone doing the work than from a recruiting page.
+
+Would you be willing to share what you wish you'd known about investment banking before joining Moelis & Company? Even a couple of lines would help.
+
+Thank you for your time, and I completely understand if you're too busy.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Sofia Martinez · Centerview Partners · no hook · hints {'tone': 'formal', 'ask': 'call_15'}
+phrases: subject=si3, greeting=g1, opener=oi3, credibility=cr2, ask=aq1, close=c3
+Subject: Learning about your work at Centerview Partners
+
+Hi Sofia,
+
+My name is Your Name, and I'm a junior at Your University exploring a career in investment banking. I'd rather understand the day-to-day from someone doing the work than from a recruiting page.
+
+Would you be willing to share what you wish you'd known about investment banking before joining Centerview Partners? Even a couple of lines would help.
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Sofia Martinez · Centerview Partners · hook: talk · hints {'tone': 'formal', 'ask': 'call_15'}
+phrases: subject=si3, greeting=g1, hook=ht2, opener=oi3, credibility=cr2, ask=aq1, close=c3
+Subject: Learning about your work at Centerview Partners
+
+Hi Sofia,
+
+I came across your remarks on private credit at Midwest Finance Forum. My name is Your Name, and I'm a junior at Your University exploring a career in investment banking. I'd rather understand the day-to-day from someone doing the work than from a recruiting page.
+
+Would you be willing to share what you wish you'd known about investment banking before joining Centerview Partners? Even a couple of lines would help.
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Aaron Brooks · PJT Partners · no hook · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=si3, greeting=g1, opener=oi1, credibility=cr1, ask=aq2, close=c1
+Subject: Learning about your work at PJT Partners
+
+Hi Aaron,
+
+I'm a junior at Your University preparing for a career in investment banking, and I've been trying to learn how teams like yours at PJT Partners work day to day. I'm trying to learn as much as I can before recruiting picks up.
+
+If you have 15 minutes in the next couple of weeks, I'd love to ask how you would prepare for investment banking if you were in my position.
+
+Thanks for considering it, and no worries if the timing doesn't work.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Aaron Brooks · PJT Partners · hook: talk · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=si3, greeting=g1, hook=ht2, opener=oi1, credibility=cr1, ask=aq2, close=c1
+Subject: Learning about your work at PJT Partners
+
+Hi Aaron,
+
+I came across your remarks on private credit at Midwest Finance Forum. I'm a junior at Your University preparing for a career in investment banking, and I've been trying to learn how teams like yours at PJT Partners work day to day. I'm trying to learn as much as I can before recruiting picks up.
+
+If you have 15 minutes in the next couple of weeks, I'd love to ask how you would prepare for investment banking if you were in my position.
+
+Thanks for considering it, and no worries if the timing doesn't work.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Hannah Kim · Evercore · no hook · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=si3, greeting=g2, opener=oi1, credibility=cr1, ask=aq2, close=c2
+Subject: Learning about your work at Evercore
+
+Hello Hannah,
+
+I'm a junior at Your University preparing for a career in investment banking, and I've been trying to learn how teams like yours at Evercore work day to day. I'm trying to learn as much as I can before recruiting picks up.
+
+If you have 15 minutes in the next couple of weeks, I'd love to ask how you would prepare for investment banking if you were in my position.
+
+Thank you for your time, and I completely understand if you're too busy.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Hannah Kim · Evercore · hook: talk · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=si3, greeting=g2, hook=ht2, opener=oi1, credibility=cr1, ask=aq2, close=c2
+Subject: Learning about your work at Evercore
+
+Hello Hannah,
+
+I came across your remarks on private credit at Midwest Finance Forum. I'm a junior at Your University preparing for a career in investment banking, and I've been trying to learn how teams like yours at Evercore work day to day. I'm trying to learn as much as I can before recruiting picks up.
+
+If you have 15 minutes in the next couple of weeks, I'd love to ask how you would prepare for investment banking if you were in my position.
+
+Thank you for your time, and I completely understand if you're too busy.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Ryan O'Connor · Lazard · no hook · hints {'tone': 'formal', 'ask': 'call_15'}
+phrases: subject=si1, greeting=g2, opener=oi3, credibility=cr1, ask=aq2, close=c1
+Subject: Question about investment banking at Lazard
+
+Hello Ryan,
+
+My name is Your Name, and I'm a junior at Your University exploring a career in investment banking. I'm trying to learn as much as I can before recruiting picks up.
+
+If you have 15 minutes in the next couple of weeks, I'd love to ask how you would prepare for investment banking if you were in my position.
+
+Thanks for considering it, and no worries if the timing doesn't work.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Ryan O'Connor · Lazard · hook: talk · hints {'tone': 'formal', 'ask': 'call_15'}
+phrases: subject=si1, greeting=g2, hook=ht2, opener=oi3, credibility=cr1, ask=aq2, close=c1
+Subject: Question about investment banking at Lazard
+
+Hello Ryan,
+
+I came across your remarks on private credit at Midwest Finance Forum. My name is Your Name, and I'm a junior at Your University exploring a career in investment banking. I'm trying to learn as much as I can before recruiting picks up.
+
+If you have 15 minutes in the next couple of weeks, I'd love to ask how you would prepare for investment banking if you were in my position.
+
+Thanks for considering it, and no worries if the timing doesn't work.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Grace Liu · Moelis & Company · no hook · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=si1, greeting=g1, opener=oi1, credibility=cr1, ask=aq1, close=c3
+Subject: Question about investment banking at Moelis & Company
+
+Hi Grace,
+
+I'm a junior at Your University preparing for a career in investment banking, and I've been trying to learn how teams like yours at Moelis & Company work day to day. I'm trying to learn as much as I can before recruiting picks up.
+
+Would you be willing to share what you wish you'd known about investment banking before joining Moelis & Company? Even a couple of lines would help.
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Grace Liu · Moelis & Company · hook: talk · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=si1, greeting=g1, hook=ht2, opener=oi1, credibility=cr1, ask=aq1, close=c3
+Subject: Question about investment banking at Moelis & Company
+
+Hi Grace,
+
+I came across your remarks on private credit at Midwest Finance Forum. I'm a junior at Your University preparing for a career in investment banking, and I've been trying to learn how teams like yours at Moelis & Company work day to day. I'm trying to learn as much as I can before recruiting picks up.
+
+Would you be willing to share what you wish you'd known about investment banking before joining Moelis & Company? Even a couple of lines would help.
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name

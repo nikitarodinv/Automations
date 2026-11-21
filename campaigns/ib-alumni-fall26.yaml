@@ -1,0 +1,69 @@
+id: ib-alumni-fall26
+description: Alumni working in investment banking in New York
+sender:
+  name: Your Name
+  school: Your University         # {{sender_school}}
+  year: junior                    # {{sender_year}}
+  topic: investment banking       # {{topic}}
+  goal: 15-minute call
+  past_companies: []              # your past employers, for shared-employer openers
+  signature: default              # key into signatures.yaml
+
+targeting:
+  keywords:
+    any: ["investment banking", "M&A", "leveraged finance"]  # match at least one
+    all: []                                                   # must match every term
+    exclude: ["recruiter", "talent acquisition"]
+  titles:
+    include: ["Analyst", "Associate", "Vice President"]
+    exclude: ["Managing Director", "Partner", "Recruiter"]
+  seniority: [entry, junior, mid]  # entry | junior | mid | senior | executive
+  companies:
+    include:
+      - { name: "Goldman Sachs", domain: gs.com }
+      - { name: "Evercore", domain: evercore.com }
+      - { name: "Lazard", domain: lazard.com }
+      - { name: "Moelis & Company", domain: moelis.com }
+      - { name: "Centerview Partners", domain: centerviewpartners.com }
+      - { name: "PJT Partners", domain: pjtpartners.com }
+    exclude: []
+  locations: ["New York, NY"]
+  schools: ["Your University"]    # used for shared-affiliation openers
+
+limits:
+  max_prospects_per_run: 40
+  max_drafts_per_run: 15
+  max_per_company_per_run: 3
+  hunter_credit_budget: 20         # hard stop for this run
+  llm_call_budget: 60
+  search_budget: 45                # web searches for Stage 4
+  recontact_cooldown_days: 180
+
+email:
+  min_score: 80                    # Hunter score, 0-100
+  accept_statuses: [valid]         # catch-all domains need min_score_accept_all
+  min_score_accept_all: 92
+
+templates:
+  allowed: [alumni_coffee_chat, industry_question, referral_ask, saw_your_work]
+  fallback: alumni_coffee_chat
+
+research:
+  enabled: false                   # web research arrives in milestone 3
+  search_provider: brave
+  max_searches_per_prospect: 3
+  max_pages: 10
+  reselect: true
+  blocked_domains: [linkedin.com]
+
+phrase_bank: phrases/networking.yaml
+
+# Milestone 1 real runs read a list you hold (your own CSV, or LinkedIn's Connections.csv export).
+# `source: pool` (PDL, Apollo, Hunter) arrives in milestone 2. --dry-run ignores this and uses fixtures.
+source: csv
+source_options:
+  path: lists/contacts.csv         # see lists/example_contacts.csv for the columns
+
+delivery: eml                      # graph_draft arrives in milestone 3; eml opens in Outlook as a draft
+review_before_delivery: false      # true = stop at drafted so you can add a note
+# schedule: "30 8 * * 1-5"         # optional, cron syntax, local time

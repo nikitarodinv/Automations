@@ -1,0 +1,211 @@
+# Phrase bank for networking emails. Edit freely; then run:
+#   autonet lint phrases
+#   autonet run <campaign> --dry-run --fresh
+# Raise `version` after edits so the change shows up in each draft's audit trail.
+#
+# Variables ({{name}}):
+#   prospect:  first_name, last_name, company, title, team, school (shared school), past_company (shared employer)
+#   you:       sender_name, sender_school, sender_year, topic   (campaign's sender block)
+#   hook:      hook.topic, hook.event, hook.title, hook.outlet, hook.show, hook.client,
+#              hook.deal_type, hook.new_title, hook.text
+# A phrase is used only when every variable it mentions has a value for this person.
+version: 1
+variables: [first_name, last_name, company, title, team, school, past_company,
+            sender_name, sender_school, sender_year, topic, "hook.*"]
+
+categories:
+  greeting:
+    - id: g1
+      text: "Hi {{first_name}},"
+    - id: g2
+      text: "Hello {{first_name}},"
+    - id: g3
+      text: "Dear {{first_name}},"
+      tags: { tone: [formal] }
+
+  # ---------------------------------------------------------------- subjects (max 60 chars)
+  subject.alumni:
+    - id: s1
+      text: "{{school}} student, quick question about {{company}}"
+      requires: [school]
+      max_chars: 60
+    - id: s2
+      text: "Quick question from a {{school}} student"
+      requires: [school]
+      max_chars: 60
+    - id: s3
+      text: "{{school}} {{sender_year}} curious about {{company}}"
+      requires: [school]
+      max_chars: 60
+
+  subject.industry:
+    - id: si1
+      text: "Question about {{topic}} at {{company}}"
+      max_chars: 60
+    - id: si2
+      text: "{{sender_school}} student with a question about {{company}}"
+      max_chars: 60
+    - id: si3
+      text: "Learning about your work at {{company}}"
+      max_chars: 60
+
+  subject.referral:
+    - id: sr1
+      text: "Quick follow-up about {{company}}"
+      max_chars: 60
+    - id: sr2
+      text: "Following up, and a question about {{company}}"
+      max_chars: 60
+
+  subject.work:
+    - id: sw1
+      text: "Question after reading about your work at {{company}}"
+      max_chars: 60
+    - id: sw2
+      text: "A {{sender_school}} student's question about your work"
+      max_chars: 60
+    - id: sw3
+      text: "A question about your recent work"
+      max_chars: 60
+
+  # ---------------------------------------------------------------- hooks (one per email, from Stage 4 or your note)
+  hook.talk:
+    - id: ht1
+      text: "I enjoyed your talk on {{hook.topic}} at {{hook.event}}."
+      requires: [hook.topic, hook.event]
+    - id: ht2
+      text: "I came across your remarks on {{hook.topic}} at {{hook.event}}."
+      requires: [hook.topic, hook.event]
+
+  hook.writing:
+    - id: hw1
+      text: 'I read your piece "{{hook.title}}" in {{hook.outlet}}.'
+      requires: [hook.title, hook.outlet]
+    - id: hw2
+      text: 'Your article "{{hook.title}}" in {{hook.outlet}} caught my attention.'
+      requires: [hook.title, hook.outlet]
+
+  hook.podcast:
+    - id: hp1
+      text: "I listened to your conversation about {{hook.topic}} on {{hook.show}}."
+      requires: [hook.show, hook.topic]
+
+  hook.deal:
+    - id: hd1
+      text: "I saw that your team advised {{hook.client}} on its recent {{hook.deal_type}}."
+      requires: [hook.client, hook.deal_type]
+
+  hook.promotion:
+    - id: hpr1
+      text: "I saw the announcement of your promotion to {{hook.new_title}}. Congratulations."
+      requires: [hook.new_title]
+
+  hook.company_news:
+    - id: hc1
+      text: "I read the recent news about {{company}} and {{hook.topic}}."
+      requires: [hook.topic]
+
+  hook.note:
+    - id: hn1
+      text: "{{hook.text}}"            # your own sentence, used as written
+
+  # ---------------------------------------------------------------- openers
+  opener.shared_school:
+    - id: os1
+      text: "I'm a {{sender_year}} at {{school}}, and I saw that you're a fellow alum now at {{company}}."
+      requires: [sender_year, school, company]
+      tags: { tone: [warm], seniority: [entry, junior, mid] }
+      weight: 3
+    - id: os2
+      text: >-
+        As a {{school}} student interested in {{topic}}, I came across
+        your path to {{company}} and wanted to reach out.
+      requires: [school, topic, company]
+    - id: os3
+      text: "I'm a {{sender_year}} at {{school}} exploring {{topic}}, and I was glad to see a fellow {{school}} graduate at {{company}}."
+      requires: [sender_year, school, topic, company]
+
+  opener.industry:
+    - id: oi1
+      text: "I'm a {{sender_year}} at {{sender_school}} preparing for a career in {{topic}}, and I've been trying to learn how teams like yours at {{company}} work day to day."
+      requires: [sender_year, sender_school, topic, company]
+    - id: oi2
+      text: "I'm a {{sender_school}} student interested in {{topic}}, and I came across your work at {{company}} while researching the field."
+      requires: [sender_school, topic, company]
+    - id: oi3
+      text: "My name is {{sender_name}}, and I'm a {{sender_year}} at {{sender_school}} exploring a career in {{topic}}."
+      requires: [sender_name, sender_year, sender_school, topic]
+      tags: { tone: [formal] }
+    - id: oi4
+      text: "I'm a {{sender_year}} at {{sender_school}}, and I've been reading about the {{team}} group at {{company}} as I learn about {{topic}}."
+      requires: [sender_year, sender_school, team, company, topic]
+
+  opener.referral:
+    - id: or1
+      text: "Thanks again for your help when we were last in touch. I'm now applying for {{topic}} roles, and {{company}} is at the top of my list."
+      requires: [topic, company]
+    - id: or2
+      text: "I hope you've been well since we last spoke. I'm now recruiting for {{topic}} roles, and I'm especially interested in {{company}}."
+      requires: [topic, company]
+
+  opener.work:
+    - id: ow1
+      text: "I'm a {{sender_year}} at {{sender_school}} exploring {{topic}}, and it made me curious about the work your team does at {{company}}."
+      requires: [sender_year, sender_school, topic, company]
+    - id: ow2
+      text: "As a {{sender_school}} student hoping to work in {{topic}}, I'd love to understand how that work looks from inside {{company}}."
+      requires: [sender_school, topic, company]
+
+  # ---------------------------------------------------------------- about you (optional slot; make these yours)
+  credibility:
+    - id: cr1
+      text: "I'm trying to learn as much as I can before recruiting picks up."
+    - id: cr2
+      text: "I'd rather understand the day-to-day from someone doing the work than from a recruiting page."
+
+  # ---------------------------------------------------------------- asks
+  ask.call:
+    - id: a1
+      text: "Would you be open to a 15-minute call in the next couple of weeks?"
+      tags: { ask: [call_15] }
+    - id: a2
+      text: "If you have time, I'd value 15 minutes to hear how you chose {{company}} and what your first year on {{team}} was like."
+      requires: [company, team]
+      tags: { ask: [call_15] }
+    - id: a3
+      text: "If you have 15 minutes sometime in the next few weeks, I'd be grateful to hear how you got to {{company}}."
+      requires: [company]
+      tags: { ask: [call_15] }
+    - id: a4
+      text: "If a call is hard to fit in, I'd be grateful for your answer to one question: what do you wish you had known before starting at {{company}}?"
+      requires: [company]
+      tags: { ask: [question] }
+
+  ask.question:
+    - id: aq1
+      text: "Would you be willing to share what you wish you'd known about {{topic}} before joining {{company}}? Even a couple of lines would help."
+      requires: [topic, company]
+    - id: aq2
+      text: "If you have 15 minutes in the next couple of weeks, I'd love to ask how you would prepare for {{topic}} if you were in my position."
+      requires: [topic]
+      tags: { ask: [call_15] }
+    - id: aq3
+      text: "What skill has mattered most in your first years at {{company}}? I'd be grateful for even a short reply."
+      requires: [company]
+      tags: { ask: [question] }
+
+  ask.referral:
+    - id: ar1
+      text: "Would you be comfortable referring me for a {{topic}} role at {{company}}, or pointing me to the right person to talk to?"
+      requires: [topic, company]
+    - id: ar2
+      text: "If you think I'd be a fit, would you be open to passing my name to the recruiting team, or telling me who you'd suggest I speak with?"
+
+  # ---------------------------------------------------------------- closes
+  close:
+    - id: c1
+      text: "Thanks for considering it, and no worries if the timing doesn't work."
+    - id: c2
+      text: "Thank you for your time, and I completely understand if you're too busy."
+    - id: c3
+      text: "I appreciate you reading this, and no pressure at all."

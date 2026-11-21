@@ -1,0 +1,22 @@
+---
+id: saw_your_work
+version: 1
+use_when: They spoke, wrote or worked on something public you can mention; open with it
+requires: [hook]
+max_words: 140
+slots:
+  subject:     { category: subject.work }
+  greeting:    { category: greeting }
+  hook:        { category: hook }
+  opener:      { category: opener.work }
+  ask:         { category: ask.call }
+  close:       { category: close }
+---
+{{ slot('greeting') }}
+
+{{ slot('hook') }} {{ slot('opener') }}
+
+{{ slot('ask') }}
+
+{{ slot('close') }}
+{{ signature }}

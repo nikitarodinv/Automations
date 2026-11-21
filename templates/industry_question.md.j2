@@ -1,0 +1,23 @@
+---
+id: industry_question
+version: 1
+use_when: No shared tie; open with a specific question about their group
+requires: []
+max_words: 140
+slots:
+  subject:     { category: subject.industry }
+  greeting:    { category: greeting }
+  hook:        { category: hook, optional: true }
+  opener:      { category: opener.industry }
+  credibility: { category: credibility, optional: true }
+  ask:         { category: ask.question }
+  close:       { category: close }
+---
+{{ slot('greeting') }}
+
+{{ slot('hook') }} {{ slot('opener') }} {{ slot('credibility') }}
+
+{{ slot('ask') }}
+
+{{ slot('close') }}
+{{ signature }}

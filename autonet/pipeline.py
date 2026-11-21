@@ -1,0 +1,721 @@
+"""Stage orchestration. Each stage reads prospects in its input state from SQLite, writes its
+output back, and commits after every prospect, so any stage can be rerun alone."""
+
+from __future__ import annotations
+
+from collections import Counter
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from .campaign import IMPLEMENTED_DELIVERY, IMPLEMENTED_SOURCES, Campaign, load_campaign, resolve_campaign_path
+from .compose import Composed, PhraseBank, Template, catalog_hash, compose, load_phrase_bank, load_templates
+from .config import Config
+from .delivery import get_delivery, write_review
+from .delivery.outlook_mcp import read_acks
+from .draft import lint_draft, personal_values
+from .emails import ACCEPTED, decide
+from .errors import ConfigError, DataError, QuotaError
+from .ledger import Ledger, RunBudget
+from .logs import JsonLog
+from .matching import apply_filters, fill_company_domain, infer_seniority, qualification_score, shared_employer, shared_school
+from .models import Prospect
+from .providers import get_finder, get_source
+from .selector import Decision, RulesSelector, SelectionContext, known_requirement
+from .store import Store
+from .util import iso, now_utc, parse_iso, short_hash, word_count
+
+LOOKUP_REUSE_DAYS = 90
+NOTE_MAX_WORDS = 40
+
+
+@dataclass
+class Report:
+    run_id: str
+    campaign_id: str
+    dry_run: bool = False
+    counts: Counter = field(default_factory=Counter)
+    needs_you: Counter = field(default_factory=Counter)
+    notes: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    filtered_locally: set[str] = field(default_factory=set)
+    delivery: str = ""
+    credits: float = 0
+    credit_budget: float = 0
+    llm_calls: float = 0
+    llm_budget: int = 0
+
+    def render(self) -> str:
+        c = self.counts
+        tag = " (dry run)" if self.dry_run else ""
+        lines = [
+            f"Run {self.run_id} · {self.campaign_id}{tag}",
+            f"Discovered {c['discovered']} → qualified {c['qualified']} → "
+            f"templates: {c['selected']} picked, {c['select_skipped']} skipped, {c['select_review']} to review"
+            f" (selector: {', '.join(sorted(k[9:] for k in c if k.startswith('selector:') )) or 'n/a'})",
+            f"Emails: {c['email_found']} found, {c['email_not_found']} not found, {c['email_unconfirmed']} unconfirmed, "
+            f"{c['email_pending']} waiting → {c['drafted']} drafts"
+            + (f" → {c['delivered']} delivered ({self.delivery})" if self.delivery else ""),
+            f"Finder credits {self.credits:g} of {self.credit_budget:g} · model calls {self.llm_calls:g} of {self.llm_budget}",
+        ]
+        if self.needs_you:
+            lines.append("Needs you: " + ", ".join(f"{n} {k}" for k, n in sorted(self.needs_you.items())))
+        if self.filtered_locally:
+            lines.append("Filters applied locally: " + ", ".join(sorted(self.filtered_locally)))
+        lines += [f"Note: {n}" for n in self.notes]
+        lines += [f"Error: {e}" for e in self.errors]
+        lines.append("Review: /autonetworker review")
+        return "\n".join(lines)
+
+
+@dataclass
+class Ctx:
+    cfg: Config
+    campaign: Campaign
+    store: Store
+    run_id: str
+    report: Report
+    templates: dict[str, Template]
+    bank: PhraseBank
+    signature: str
+    log: JsonLog
+    ledger: Ledger
+    dry_run: bool = False
+    max_drafts: int = 15
+
+    @property
+    def cid(self) -> str:
+        return self.campaign.id
+
+    @property
+    def out_dir(self) -> Path:
+        return self.cfg.path("out") / self.run_id
+
+    @property
+    def allowed(self) -> list[Template]:
+        return [self.templates[t] for t in self.campaign["templates"]["allowed"]]
+
+    def commit(self) -> None:
+        self.store.db.commit()
+
+
+# --------------------------------------------------------------------------- setup
+def open_store(cfg: Config, dry_run: bool, db: Path | None = None, fresh: bool = False) -> Store:
+    path = db or cfg.path("dry_run_db" if dry_run else "db")
+    if fresh:
+        if not dry_run and db is None:
+            raise ConfigError("--fresh only applies to dry runs")
+        for suffix in ("", "-wal", "-shm"):
+            Path(str(path) + suffix).unlink(missing_ok=True)
+    return Store(path)
+
+
+def load_signature(cfg: Config, key: str) -> str:
+    path = cfg.path("signatures")
+    sigs = yaml.safe_load(path.read_text()) if path.is_file() else {}
+    if key not in (sigs or {}):
+        raise ConfigError(f"signature '{key}' not found in {path}")
+    return str(sigs[key])
+
+
+def check_campaign(cfg: Config, campaign: Campaign, dry_run: bool = False) -> tuple[dict[str, Template], PhraseBank, list[str]]:
+    """Everything `autonet validate` checks beyond the schema. Returns (templates, bank, warnings)."""
+    templates = load_templates(cfg.path("templates"))
+    problems: list[str] = []
+    warnings: list[str] = []
+    for tid in campaign["templates"]["allowed"]:
+        if tid not in templates:
+            problems.append(f"templates.allowed: unknown template '{tid}' (known: {', '.join(sorted(templates))})")
+        else:
+            for req in templates[tid].requires:
+                if not known_requirement(req):
+                    problems.append(f"template {tid}: unknown requirement '{req}'")
+    bank = load_phrase_bank(cfg.resolve(campaign["phrase_bank"]))
+    load_signature(cfg, campaign.sender.get("signature", "default"))
+    if not dry_run:
+        if campaign["source"] not in IMPLEMENTED_SOURCES:
+            warnings.append(f"source '{campaign['source']}' arrives in milestone 2; real runs need source: csv for now")
+        if campaign["delivery"] not in IMPLEMENTED_DELIVERY:
+            warnings.append(f"delivery '{campaign['delivery']}' arrives in milestone 3; use eml, markdown or outlook_draft")
+        if campaign["source"] == "csv":
+            p = cfg.resolve(campaign["source_options"]["path"])
+            if not p.is_file():
+                warnings.append(f"source_options.path: {p} doesn't exist yet; real runs need it (dry runs don't)")
+    if problems:
+        raise ConfigError("campaign check failed:\n  - " + "\n  - ".join(problems))
+    return templates, bank, warnings
+
+
+def new_run_id(store: Store, dry_run: bool) -> str:
+    base = ("dry_" if dry_run else "r_") + datetime.now().strftime("%Y%m%d_%H%M%S")
+    rid, n = base, 1
+    while store.run_exists(rid):
+        n += 1
+        rid = f"{base}_{n}"
+    return rid
+
+
+def make_ctx(
+    cfg: Config,
+    campaign: Campaign,
+    store: Store,
+    *,
+    dry_run: bool = False,
+    limit: int | None = None,
+    debug: bool = False,
+    run_id: str | None = None,
+) -> Ctx:
+    templates, bank, warnings = check_campaign(cfg, campaign, dry_run)
+    rid = run_id or new_run_id(store, dry_run)
+    if not store.run_exists(rid):
+        store.start_run(rid, campaign.id, dry_run)
+    lim = campaign.limits
+    report = Report(
+        run_id=rid, campaign_id=campaign.id, dry_run=dry_run,
+        credit_budget=lim["hunter_credit_budget"], llm_budget=lim["llm_call_budget"],
+    )
+    report.notes += warnings
+    ledger = Ledger(store, rid, RunBudget(lim["hunter_credit_budget"], lim["llm_call_budget"], lim["search_budget"]))
+    return Ctx(
+        cfg=cfg, campaign=campaign, store=store, run_id=rid, report=report, templates=templates, bank=bank,
+        signature=load_signature(cfg, campaign.sender.get("signature", "default")),
+        log=JsonLog(cfg.path("logs"), debug=debug), ledger=ledger, dry_run=dry_run,
+        max_drafts=min(limit or lim["max_drafts_per_run"], lim["max_drafts_per_run"]),
+    )
+
+
+def selection_context(ctx: Ctx, p: Prospect) -> SelectionContext:
+    prior = ctx.store.db.execute("SELECT 1 FROM contact_log WHERE prospect_id=?", (p.prospect_id,)).fetchone()
+    return SelectionContext(
+        prospect=p,
+        schools=ctx.campaign.targeting.get("schools", []),
+        sender_past=ctx.campaign.sender.get("past_companies", []),
+        prior_contact=bool(prior),
+        hooks=ctx.store.hooks_for(p.prospect_id),
+    )
+
+
+# --------------------------------------------------------------------------- stage 1
+def stage_discover(ctx: Ctx) -> None:
+    camp, store, rep = ctx.campaign, ctx.store, ctx.report
+    if ctx.dry_run:
+        source = get_source("fixture", path=str(ctx.cfg.resolve(ctx.cfg["dry_run"]["prospects"])))
+    else:
+        name = camp["source"]
+        if name not in IMPLEMENTED_SOURCES:
+            raise ConfigError(f"source '{name}' arrives in milestone 2; use source: csv for now")
+        opts = dict(camp["source_options"])
+        if "path" in opts:
+            opts["path"] = str(ctx.cfg.resolve(opts["path"]))
+        source = get_source(name, **opts)
+
+    filters = {"keywords", "titles", "companies", "locations", "seniority"}
+    rep.filtered_locally |= filters - source.supported_filters()
+    targeting = camp.targeting
+    candidates: list[tuple[Prospect, list[str]]] = []
+    lim = camp.limits
+
+    for p in source.search(camp, lim["max_prospects_per_run"]):
+        rep.counts["discovered"] += 1
+        fill_company_domain(p, targeting.get("companies", {}).get("include", []))
+        if not p.seniority:
+            p.seniority = infer_seniority(p.current_title or p.headline)
+        p = store.upsert_prospect(p)
+        cp = store.get_cp(ctx.cid, p.prospect_id)
+        if cp and cp["state"] not in ("discovered",):
+            ctx.commit()
+            continue  # already further along (or suppressed/skipped) in this campaign
+        fr = apply_filters(p, targeting)
+        if not fr.passed:
+            store.set_state(ctx.cid, p.prospect_id, "discovered", reason="; ".join(fr.reasons), run_id=ctx.run_id)
+            rep.counts["filtered_out"] += 1
+            ctx.commit()
+            continue
+        p.match = {"keywords_hit": fr.keywords_hit, "filtered_locally": sorted(rep.filtered_locally)}
+        store.upsert_prospect(p)
+        store.set_state(ctx.cid, p.prospect_id, "discovered", reason=None, run_id=ctx.run_id)
+        candidates.append((p, fr.keywords_hit))
+        ctx.commit()
+
+    scored = []
+    for p, hits in candidates:
+        why = store.is_suppressed(p.prospect_id, p.known_email)
+        if why:
+            store.set_state(ctx.cid, p.prospect_id, "suppressed", reason=why, run_id=ctx.run_id)
+            rep.counts["suppressed"] += 1
+            continue
+        if store.in_cooldown(p.prospect_id, lim["recontact_cooldown_days"]):
+            store.set_state(ctx.cid, p.prospect_id, "discovered", reason="recontact cooldown", run_id=ctx.run_id)
+            rep.counts["cooldown"] += 1
+            continue
+        scored.append((qualification_score(p, targeting, camp.sender, hits), p))
+    ctx.commit()
+
+    scored.sort(key=lambda sp: (-sp[0], sp[1].prospect_id))
+    per_company: Counter = Counter()
+    taken = 0
+    for score, p in scored:
+        key = (p.company.domain or p.company.normalized).lower()
+        if taken >= lim["max_prospects_per_run"]:
+            store.set_state(ctx.cid, p.prospect_id, "discovered", reason="over max_prospects_per_run", score=score)
+            continue
+        if per_company[key] >= lim["max_per_company_per_run"]:
+            store.set_state(ctx.cid, p.prospect_id, "discovered", reason="over max_per_company_per_run", score=score)
+            continue
+        per_company[key] += 1
+        taken += 1
+        store.set_state(ctx.cid, p.prospect_id, "qualified", score=score, run_id=ctx.run_id)
+        rep.counts["qualified"] += 1
+        ctx.commit()
+    ctx.commit()
+
+
+# --------------------------------------------------------------------------- stage 2
+def selector_for(ctx: Ctx) -> RulesSelector:
+    provider = ctx.cfg["jev"].get("provider", "off")
+    if provider not in (None, False, "off"):
+        ctx.report.notes.append(f"jev.provider '{provider}': the Jev client arrives in milestone 2; using the rules fallback")
+    return RulesSelector()
+
+
+def stage_select(ctx: Ctx) -> None:
+    sel = selector_for(ctx)
+    chash = catalog_hash(ctx.allowed, {"fallback": ctx.campaign["templates"]["fallback"], "selector": sel.version})
+    for cp in ctx.store.in_state(ctx.cid, "qualified"):
+        p = ctx.store.get_prospect(cp["prospect_id"])
+        assert p
+        cached = ctx.store.get_decision(p.prospect_id, chash, sel.version)
+        if cached and cached["campaign_id"] == ctx.cid:
+            r = cached["reason"] or {}
+            d = Decision(r.get("route", "continue"), cached["template"], cached["selector"], cached["confidence"], r, cached["hints"], r.get("review_reason"))
+        else:
+            d = sel.decide(selection_context(ctx, p), ctx.allowed, ctx.campaign["templates"]["fallback"])
+            ctx.store.save_decision(ctx.cid, p.prospect_id, chash, sel.version, d.as_record())
+        ctx.report.counts[f"selector:{d.selector}"] += 1
+        if d.route == "continue":
+            ctx.store.set_state(ctx.cid, p.prospect_id, "selected", run_id=ctx.run_id)
+            ctx.report.counts["selected"] += 1
+        elif d.route == "review":
+            ctx.store.set_state(ctx.cid, p.prospect_id, "review", reason=d.review_reason, resume_state="selected", run_id=ctx.run_id)
+            ctx.report.counts["select_review"] += 1
+            ctx.report.needs_you["template picks to review"] += 1
+        else:
+            ctx.store.set_state(ctx.cid, p.prospect_id, "skipped", reason=d.review_reason, run_id=ctx.run_id)
+            ctx.report.counts["select_skipped"] += 1
+        ctx.log.write(run_id=ctx.run_id, stage="select", prospect_id=p.prospect_id, provider=d.selector, status=d.route, template=d.template)
+        ctx.commit()
+
+
+# --------------------------------------------------------------------------- stage 3
+def _lookup_key(p: Prospect) -> tuple[str, str, str]:
+    return p.first_name, p.last_name, (p.company.domain or p.company.normalized)
+
+
+def _apply_email_decision(ctx: Ctx, p: Prospect, decision: str, rec: dict[str, Any]) -> None:
+    store, rep = ctx.store, ctx.report
+    rec = {**rec, "decision": decision}
+    store.save_lookup(*_lookup_key(p), p.prospect_id, rec)
+    if decision in ACCEPTED:
+        if store.is_suppressed(p.prospect_id, rec.get("email")):
+            store.set_state(ctx.cid, p.prospect_id, "suppressed", reason="email on suppression list")
+            return
+        store.set_state(ctx.cid, p.prospect_id, "email_found", run_id=ctx.run_id)
+        rep.counts["email_found"] += 1
+    elif decision == "unconfirmed":
+        store.set_state(ctx.cid, p.prospect_id, "review", reason="email_unconfirmed", resume_state="email_found", run_id=ctx.run_id)
+        rep.counts["email_unconfirmed"] += 1
+        rep.needs_you["unconfirmed emails"] += 1
+    elif decision == "claimed":
+        store.suppress(p.prospect_id, "prospect", "claimed_email")
+        rep.counts["suppressed"] += 1
+    else:
+        store.set_state(ctx.cid, p.prospect_id, "skipped", reason=f"email_{decision}", run_id=ctx.run_id)
+        rep.counts["email_not_found"] += 1
+
+
+def stage_find_emails(ctx: Ctx) -> None:
+    store, rep = ctx.store, ctx.report
+    finder = None
+    if ctx.dry_run:
+        finder = get_finder("fixture_finder", path=str(ctx.cfg.resolve(ctx.cfg["dry_run"]["emails"])))
+    finder_names = [finder.name] if finder else []
+    todo = store.in_state(ctx.cid, "selected") + store.in_state(ctx.cid, "pending_email")
+    stopped: str | None = None
+    # Don't pay for more addresses than this run can turn into drafts.
+    slots = ctx.max_drafts - len(store.in_state(ctx.cid, "email_found")) - len(store.in_state(ctx.cid, "researched"))
+    if not ctx.dry_run:
+        slots = min(slots, ctx.cfg["limits"]["daily_draft_cap"] - store.drafts_created_since(_local_midnight_utc_iso()))
+    deferred = 0
+
+    for cp in todo:
+        p = store.get_prospect(cp["prospect_id"])
+        assert p
+        if store.is_suppressed(p.prospect_id, p.known_email):
+            store.set_state(ctx.cid, p.prospect_id, "suppressed", reason="suppression list")
+            ctx.commit()
+            continue
+        # 1. Reuse what's known: an address the source carried, or a recent lookup.
+        if p.known_email:
+            _apply_email_decision(ctx, p, "manual", {"email": p.known_email, "score": None, "status": "user_supplied", "provider": p.source})
+            ctx.commit()
+            continue
+        prev = store.get_lookup(*_lookup_key(p))
+        if prev and prev["decision"] and parse_iso(prev["checked_at"]) > now_utc() - timedelta(days=LOOKUP_REUSE_DAYS):
+            if prev["decision"] in ACCEPTED or prev["decision"] in ("unconfirmed", "not_found", "invalid"):
+                _apply_email_decision(ctx, p, prev["decision"], {**prev, "credits_used": 0})
+                ctx.commit()
+                continue
+        if stopped or finder is None:
+            store.set_state(ctx.cid, p.prospect_id, "pending_email", reason=stopped or "no email finder configured (Hunter arrives in milestone 2)")
+            rep.counts["email_pending"] += 1
+            ctx.commit()
+            continue
+        if rep.counts["email_found"] >= slots:
+            deferred += 1  # stays in its state; the next run looks it up
+            continue
+        # 2. Find, after checking the call fits the run budget.
+        try:
+            ctx.ledger.require_finder_credits(finder.cost.get("found", 1), finder_names)
+        except QuotaError as e:
+            stopped = str(e)
+            rep.notes.append(f"Stage 3 stopped: {e}")
+            store.set_state(ctx.cid, p.prospect_id, "pending_email", reason=stopped)
+            rep.counts["email_pending"] += 1
+            ctx.commit()
+            continue
+        try:
+            r = finder.find(p)
+        except DataError as e:
+            store.set_state(ctx.cid, p.prospect_id, "skipped", reason=f"data_error: {e}")
+            ctx.commit()
+            continue
+        ctx.ledger.record(finder.name, "email-finder", credits=r.credits_used)
+        decision = decide(r, ctx.campaign.email)
+        _apply_email_decision(ctx, p, decision, {
+            "email": r.email, "score": r.score, "status": r.status, "accept_all": r.status == "accept_all",
+            "sources": r.sources, "provider": r.provider, "credits_used": r.credits_used, "checked_at": iso(),
+        })
+        ctx.log.write(run_id=ctx.run_id, stage="find-emails", prospect_id=p.prospect_id, provider=r.provider, status=decision, email=r.email)
+        ctx.commit()
+    if deferred:
+        rep.notes.append(f"draft limit reached: {deferred} email lookups saved for the next run")
+    rep.credits = ctx.ledger.run_total("credits")
+
+
+# --------------------------------------------------------------------------- stage 4
+def stage_research(ctx: Ctx) -> None:
+    """Milestone 1: no web research. Prospects pass through; any stored hooks (e.g. your notes) are used."""
+    if ctx.campaign["research"].get("enabled") and not ctx.dry_run:
+        ctx.report.notes.append("research.enabled: web research arrives in milestone 3; using profile-based openers")
+    for cp in ctx.store.in_state(ctx.cid, "email_found"):
+        ctx.store.set_state(ctx.cid, cp["prospect_id"], "researched", run_id=ctx.run_id)
+        ctx.commit()
+
+
+# --------------------------------------------------------------------------- stage 5 + 6 (compose, lint)
+def draft_id_for(campaign_id: str, pid: str) -> str:
+    return "d_" + short_hash(campaign_id, pid)
+
+
+def _best_hook(ctx: Ctx, p: Prospect, draft: dict[str, Any] | None) -> dict[str, Any] | None:
+    if draft and draft.get("hook_id"):
+        h = ctx.store.get_hook(draft["hook_id"])
+        if h and h["type"] == "note":
+            return h
+    hooks = ctx.store.hooks_for(p.prospect_id)
+    hooks = [h for h in hooks if h["type"] != "note"]  # notes belong to one draft
+    return hooks[0] if hooks else None
+
+
+def _others(ctx: Ctx, pid: str) -> list[tuple[str, str]]:
+    out = []
+    for cp in ctx.store.campaign_prospects(ctx.cid):
+        if cp["prospect_id"] == pid:
+            continue
+        o = ctx.store.get_prospect(cp["prospect_id"])
+        if o:
+            out.append((o.full_name, o.company.name))
+    return out
+
+
+def compose_one(ctx: Ctx, p: Prospect, existing: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Build (or rebuild) one prospect's draft and lint it. Returns the stored draft record."""
+    store = ctx.store
+    did = draft_id_for(ctx.cid, p.prospect_id)
+    existing = existing or store.get_draft(did)
+    decision = store.latest_decision(ctx.cid, p.prospect_id)
+    if not decision or not decision.get("template"):
+        raise DataError("no template decision")
+    tid = decision["template"]
+    if tid not in ctx.templates:
+        raise DataError(f"template '{tid}' no longer exists")
+    template = ctx.templates[tid]
+    hook = _best_hook(ctx, p, existing)
+    email = store.accepted_email(p)
+    domain = (p.company.domain or p.company.normalized).lower()
+    used = store.phrases_used_at_company(ctx.cid, domain, did)
+    opt_out = ctx.cfg["draft"]["opt_out_line"] if ctx.cfg["draft"].get("include_opt_out_line", True) else None
+    schools = ctx.campaign.targeting.get("schools", [])
+
+    c: Composed = compose(
+        template=template, bank=ctx.bank, prospect=p, sender=ctx.campaign.sender, schools=schools,
+        hints=decision.get("hints") or {}, hook=hook, signature=ctx.signature, opt_out_line=opt_out,
+        used_at_company=used,
+    )
+    if c.ok:
+        lint = lint_draft(
+            c, p, template, email["email"] if email else None, _others(ctx, p.prospect_id),
+            store.recent_openers(did), personal_values(p, shared_school(p, schools),
+            shared_employer(p, ctx.campaign.sender.get("past_companies", [])), hook),
+        ).as_dict()
+    else:
+        lint = {"blocks": [c.error or "compose failed"], "warnings": []}
+    hook_summary = None
+    if hook:
+        hook_summary = f"tier {hook['tier']} {hook['type']}: " + "; ".join(f"{k}={v}" for k, v in hook["fields"].items())
+        if hook.get("source_url"):
+            hook_summary += f" ({hook['source_url']})"
+    reason = decision.get("reason") or {}
+    rec = {
+        "draft_id": did, "campaign_id": ctx.cid, "prospect_id": p.prospect_id,
+        "run_id": existing["run_id"] if existing else ctx.run_id,
+        "template_id": template.id, "template_version": template.version, "phrase_bank_version": ctx.bank.version,
+        "phrase_ids": c.phrase_ids, "hook_id": hook["hook_id"] if hook else None,
+        "note": existing.get("note") if existing else None,
+        "to_email": email["email"] if email else None, "email_score": email["score"] if email else None,
+        "subject": c.subject, "body": c.full_body, "lint": lint,
+        "audit": {
+            "name": p.full_name, "company": p.company.name, "linkedin_url": p.linkedin_url, "source": p.source,
+            "selector": decision["selector"], "selector_reason": reason.get("rule") or reason.get("top2"),
+            "confidence": decision.get("confidence"), "hints": decision.get("hints"),
+            "email_decision": email["decision"] if email else None, "email_provider": email["provider"] if email else None,
+            "catch_all": bool(email and email["decision"] == "accepted_catch_all"),
+            "hook_summary": hook_summary, "body_words": word_count(c.body),
+        },
+        "state": "drafted" if not lint["blocks"] else "blocked",
+        "delivery": existing.get("delivery") if existing else None,
+        "delivery_ref": existing.get("delivery_ref") if existing else None,
+    }
+    store.save_draft(rec)
+    if c.ok:
+        store.record_phrase_usage(did, ctx.cid, domain, c.categories)
+    if hook:
+        store.db.execute("UPDATE hooks SET used_in_draft=? WHERE hook_id=?", (did, hook["hook_id"]))
+    if lint["blocks"]:
+        store.set_state(ctx.cid, p.prospect_id, "review", reason="lint: " + "; ".join(lint["blocks"]), resume_state="drafted")
+    else:
+        store.set_state(ctx.cid, p.prospect_id, "drafted", run_id=ctx.run_id)
+    return rec
+
+
+def _local_midnight_utc_iso() -> str:
+    midnight = datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
+    return iso(midnight.astimezone(now_utc().tzinfo))
+
+
+def stage_compose(ctx: Ctx) -> None:
+    store, rep = ctx.store, ctx.report
+    daily_cap = ctx.cfg["limits"]["daily_draft_cap"]
+    made = 0
+    for cp in store.in_state(ctx.cid, "researched"):
+        if made >= ctx.max_drafts:
+            rep.notes.append(f"max_drafts_per_run ({ctx.max_drafts}) reached; the rest wait for the next run")
+            break
+        if not ctx.dry_run and store.drafts_created_since(_local_midnight_utc_iso()) >= daily_cap:
+            rep.notes.append(f"daily draft cap ({daily_cap}) reached; the rest wait until tomorrow")
+            break
+        p = store.get_prospect(cp["prospect_id"])
+        assert p
+        existing = store.get_draft(draft_id_for(ctx.cid, p.prospect_id))
+        if existing and existing["state"] in ("delivered", "sent"):
+            store.set_state(ctx.cid, p.prospect_id, existing["state"])  # idempotent: never draft the same person twice
+            ctx.commit()
+            continue
+        try:
+            rec = compose_one(ctx, p, existing)
+        except DataError as e:
+            store.set_state(ctx.cid, p.prospect_id, "review", reason=f"data: {e}", resume_state="researched")
+            rep.needs_you["data problems"] += 1
+            ctx.commit()
+            continue
+        made += 1
+        if rec["state"] == "drafted":
+            rep.counts["drafted"] += 1
+        else:
+            rep.counts["blocked"] += 1
+            rep.needs_you["blocked drafts"] += 1
+        if rec["audit"].get("catch_all"):
+            rep.needs_you["catch-all addresses to double-check"] += 1
+        ctx.log.write(run_id=ctx.run_id, stage="compose", prospect_id=p.prospect_id, status=rec["state"], template=rec["template_id"])
+        ctx.commit()
+
+
+# --------------------------------------------------------------------------- delivery
+def stage_deliver(ctx: Ctx, delivery: str | None = None) -> list[dict[str, Any]]:
+    name = "markdown" if ctx.dry_run else (delivery or ctx.campaign["delivery"])
+    pending = [d for d in ctx.store.drafts(ctx.cid, ["drafted"]) if not d.get("delivery_ref")]
+    if not pending:
+        return []
+    adapter = get_delivery(name, ctx.out_dir)
+    results = adapter.deliver(pending)
+    for r in results:
+        ctx.store.set_draft_state(r.draft_id, r.state, delivery=name, ref=r.ref)
+        d = ctx.store.get_draft(r.draft_id)
+        if r.state == "delivered" and d:
+            ctx.store.set_state(ctx.cid, d["prospect_id"], "delivered")
+            ctx.report.counts["delivered"] += 1
+        ctx.commit()
+    ctx.report.delivery = name
+    if name == "outlook_draft":
+        ctx.report.notes.append(f"{len(results)} drafts written to {ctx.out_dir / 'drafts.jsonl'}; create them in Outlook, then run `autonet deliver --ack`")
+    if name != "markdown":
+        write_review(ctx.out_dir / "review.md", f"Drafts · {ctx.run_id}", [ctx.store.get_draft(r.draft_id) for r in results])  # type: ignore[misc]
+    return pending
+
+
+def ack_deliveries(store: Store, ack_file: Path) -> int:
+    n = 0
+    for did, ref in read_acks(ack_file):
+        d = store.get_draft(did)
+        if not d or d.get("delivery_ref"):
+            continue  # unknown, or already has a mailbox draft (idempotency)
+        store.set_draft_state(did, "delivered", delivery="outlook_draft", ref=ref)
+        store.set_state(d["campaign_id"], d["prospect_id"], "delivered")
+        n += 1
+    store.db.commit()
+    return n
+
+
+# --------------------------------------------------------------------------- run
+STAGES = {
+    "discover": stage_discover,
+    "select": stage_select,
+    "find-emails": stage_find_emails,
+    "research": stage_research,
+    "compose": stage_compose,
+}
+
+
+def finish(ctx: Ctx) -> str:
+    ctx.report.credits = ctx.ledger.run_total("credits")
+    ctx.report.llm_calls = ctx.ledger.run_total("llm_calls")
+    ctx.store.end_run(ctx.run_id, dict(ctx.report.counts), ctx.report.errors)
+    text = ctx.report.render()
+    ctx.out_dir.mkdir(parents=True, exist_ok=True)
+    (ctx.out_dir / "report.txt").write_text(text + "\n")
+    return text
+
+
+def run_stages(ctx: Ctx, stages: list[str], deliver: bool = True) -> str:
+    for name in stages:
+        try:
+            STAGES[name](ctx)
+        except QuotaError as e:
+            ctx.report.notes.append(f"{name} stopped: {e}")
+            ctx.commit()
+    if deliver:
+        if ctx.campaign["review_before_delivery"] and not ctx.dry_run:
+            n = len(ctx.store.drafts(ctx.cid, ["drafted"]))
+            ctx.report.notes.append(f"review_before_delivery: {n} drafts wait for you; add notes, then /autonetworker deliver")
+        else:
+            stage_deliver(ctx)
+    return finish(ctx)
+
+
+def run_campaign(cfg: Config, campaign_ref: str, *, dry_run: bool = False, limit: int | None = None,
+                 db: Path | None = None, fresh: bool = False, debug: bool = False) -> tuple[str, Ctx]:
+    campaign = load_campaign(resolve_campaign_path(cfg.root, campaign_ref))
+    store = open_store(cfg, dry_run, db, fresh)
+    ctx = make_ctx(cfg, campaign, store, dry_run=dry_run, limit=limit, debug=debug)
+    text = run_stages(ctx, list(STAGES))
+    return text, ctx
+
+
+# --------------------------------------------------------------------------- review actions
+def add_note(ctx: Ctx, draft_id: str, text: str) -> dict[str, Any]:
+    text = text.strip()
+    if not text:
+        raise DataError("note is empty")
+    if word_count(text) > NOTE_MAX_WORDS:
+        raise DataError(f"note is {word_count(text)} words (max {NOTE_MAX_WORDS})")
+    d = ctx.store.get_draft(draft_id)
+    if not d:
+        raise DataError(f"no draft {draft_id}")
+    if d["state"] in ("delivered", "sent"):
+        raise DataError(f"{draft_id} is already {d['state']}; edit it in your Drafts folder instead")
+    hook = {
+        "hook_id": "h_" + short_hash(draft_id, "note"), "prospect_id": d["prospect_id"], "tier": 0, "type": "note",
+        "fields": {"text": text}, "quote": None, "source_url": None, "source_date": iso()[:10],
+        "found_via": "user_note", "verified": True,
+    }
+    ctx.store.save_hook(hook)
+    d["note"], d["hook_id"] = text, hook["hook_id"]
+    ctx.store.save_draft(d)
+    p = ctx.store.get_prospect(d["prospect_id"])
+    assert p
+    rec = compose_one(ctx, p, d)
+    ctx.commit()
+    return rec
+
+
+def mark(store: Store, ident: str, state: str) -> list[str]:
+    """mark-sent / mark-skip by draft id or prospect id. Returns the draft ids changed."""
+    drafts = [store.get_draft(ident)] if ident.startswith("d_") else []
+    if ident.startswith("p_"):
+        drafts = [d for d in store.drafts() if d["prospect_id"] == ident]
+    drafts = [d for d in drafts if d]
+    changed = []
+    for d in drafts:
+        if state == "sent" and d["state"] != "delivered":
+            raise DataError(f"{d['draft_id']} is {d['state']}, not delivered")
+        store.set_draft_state(d["draft_id"], state if state == "sent" else "skipped")
+        store.set_state(d["campaign_id"], d["prospect_id"], "sent" if state == "sent" else "skipped", reason="marked by you")
+        if state == "sent":
+            store.log_contact(d["prospect_id"], d["to_email"])
+        changed.append(d["draft_id"])
+    if not drafts and ident.startswith("p_") and state == "skipped":
+        store.db.execute("UPDATE campaign_prospects SET state='skipped', reason='marked by you' WHERE prospect_id=?", (ident,))
+        changed.append(ident)
+    if not changed:
+        raise DataError(f"nothing found for {ident}")
+    store.db.commit()
+    return changed
+
+
+def set_email(ctx: Ctx, pid: str, email: str) -> None:
+    cp = ctx.store.get_cp(ctx.cid, pid)
+    p = ctx.store.get_prospect(pid)
+    if not cp or not p:
+        raise DataError(f"{pid} is not in campaign {ctx.cid}")
+    if "@" not in email:
+        raise DataError(f"'{email}' doesn't look like an email address")
+    ctx.store.save_lookup(*_lookup_key(p), pid, {"email": email, "score": None, "status": "user_supplied", "provider": "you", "decision": "manual"})
+    resume = cp["resume_state"] if cp["state"] == "review" and cp["reason"] == "email_unconfirmed" else None
+    ctx.store.set_state(ctx.cid, pid, resume or "email_found")
+    ctx.commit()
+
+
+def pick_template(ctx: Ctx, pid: str, template_id: str) -> None:
+    if template_id not in ctx.campaign["templates"]["allowed"]:
+        raise DataError(f"'{template_id}' is not in this campaign's allowed templates")
+    p = ctx.store.get_prospect(pid)
+    if not p or not ctx.store.get_cp(ctx.cid, pid):
+        raise DataError(f"{pid} is not in campaign {ctx.cid}")
+    from .selector import default_hints
+
+    sc = selection_context(ctx, p)
+    rec = {"template": template_id, "confidence": 1.0, "selector": "you", "reason": {"rule": "picked by you", "route": "continue"}, "hints": default_hints(sc)}
+    chash = "manual_" + short_hash(iso())
+    ctx.store.save_decision(ctx.cid, pid, chash, "manual", rec)
+    cp = ctx.store.get_cp(ctx.cid, pid)
+    state = cp["state"]
+    # Back to the stage after selection, or rebuild an existing draft.
+    if state in ("review", "qualified", "skipped"):
+        ctx.store.set_state(ctx.cid, pid, "selected")
+    elif state in ("drafted",):
+        ctx.store.set_state(ctx.cid, pid, "researched")
+    ctx.commit()
+

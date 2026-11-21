@@ -1,0 +1,341 @@
+# referral_ask · template v1 · phrase bank v1
+
+=== Jordan Lee · Evercore · no hook · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=sr1, greeting=g1, opener=or1, ask=ar2, close=c3
+Subject: Quick follow-up about Evercore
+
+Hi Jordan,
+
+Thanks again for your help when we were last in touch. I'm now applying for investment banking roles, and Evercore is at the top of my list.
+
+If you think I'd be a fit, would you be open to passing my name to the recruiting team, or telling me who you'd suggest I speak with?
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Jordan Lee · Evercore · hook: talk · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=sr1, greeting=g1, hook=ht2, opener=or1, ask=ar2, close=c3
+Subject: Quick follow-up about Evercore
+
+Hi Jordan,
+
+I came across your remarks on private credit at Midwest Finance Forum. Thanks again for your help when we were last in touch. I'm now applying for investment banking roles, and Evercore is at the top of my list.
+
+If you think I'd be a fit, would you be open to passing my name to the recruiting team, or telling me who you'd suggest I speak with?
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Priya Shah · Goldman Sachs · no hook · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=sr2, greeting=g2, opener=or1, ask=ar1, close=c1
+Subject: Following up, and a question about Goldman Sachs
+
+Hello Priya,
+
+Thanks again for your help when we were last in touch. I'm now applying for investment banking roles, and Goldman Sachs is at the top of my list.
+
+Would you be comfortable referring me for a investment banking role at Goldman Sachs, or pointing me to the right person to talk to?
+
+Thanks for considering it, and no worries if the timing doesn't work.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Priya Shah · Goldman Sachs · hook: talk · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=sr2, greeting=g2, hook=ht1, opener=or1, ask=ar1, close=c1
+Subject: Following up, and a question about Goldman Sachs
+
+Hello Priya,
+
+I enjoyed your talk on private credit at Midwest Finance Forum. Thanks again for your help when we were last in touch. I'm now applying for investment banking roles, and Goldman Sachs is at the top of my list.
+
+Would you be comfortable referring me for a investment banking role at Goldman Sachs, or pointing me to the right person to talk to?
+
+Thanks for considering it, and no worries if the timing doesn't work.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Marcus Chen · Goldman Sachs · no hook · hints {'tone': 'formal', 'ask': 'call_15'}
+phrases: subject=sr1, greeting=g3, opener=or1, ask=ar2, close=c2
+Subject: Quick follow-up about Goldman Sachs
+
+Dear Marcus,
+
+Thanks again for your help when we were last in touch. I'm now applying for investment banking roles, and Goldman Sachs is at the top of my list.
+
+If you think I'd be a fit, would you be open to passing my name to the recruiting team, or telling me who you'd suggest I speak with?
+
+Thank you for your time, and I completely understand if you're too busy.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Marcus Chen · Goldman Sachs · hook: talk · hints {'tone': 'formal', 'ask': 'call_15'}
+phrases: subject=sr1, greeting=g3, hook=ht1, opener=or1, ask=ar2, close=c2
+Subject: Quick follow-up about Goldman Sachs
+
+Dear Marcus,
+
+I enjoyed your talk on private credit at Midwest Finance Forum. Thanks again for your help when we were last in touch. I'm now applying for investment banking roles, and Goldman Sachs is at the top of my list.
+
+If you think I'd be a fit, would you be open to passing my name to the recruiting team, or telling me who you'd suggest I speak with?
+
+Thank you for your time, and I completely understand if you're too busy.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Elena Rossi · Lazard · no hook · hints {'tone': 'formal', 'ask': 'call_15'}
+phrases: subject=sr1, greeting=g1, opener=or1, ask=ar2, close=c3
+Subject: Quick follow-up about Lazard
+
+Hi Elena,
+
+Thanks again for your help when we were last in touch. I'm now applying for investment banking roles, and Lazard is at the top of my list.
+
+If you think I'd be a fit, would you be open to passing my name to the recruiting team, or telling me who you'd suggest I speak with?
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Elena Rossi · Lazard · hook: talk · hints {'tone': 'formal', 'ask': 'call_15'}
+phrases: subject=sr1, greeting=g1, hook=ht1, opener=or1, ask=ar2, close=c3
+Subject: Quick follow-up about Lazard
+
+Hi Elena,
+
+I enjoyed your talk on private credit at Midwest Finance Forum. Thanks again for your help when we were last in touch. I'm now applying for investment banking roles, and Lazard is at the top of my list.
+
+If you think I'd be a fit, would you be open to passing my name to the recruiting team, or telling me who you'd suggest I speak with?
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== David Park · Moelis & Company · no hook · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=sr1, greeting=g1, opener=or1, ask=ar1, close=c2
+Subject: Quick follow-up about Moelis & Company
+
+Hi David,
+
+Thanks again for your help when we were last in touch. I'm now applying for investment banking roles, and Moelis & Company is at the top of my list.
+
+Would you be comfortable referring me for a investment banking role at Moelis & Company, or pointing me to the right person to talk to?
+
+Thank you for your time, and I completely understand if you're too busy.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== David Park · Moelis & Company · hook: talk · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=sr1, greeting=g1, hook=ht1, opener=or1, ask=ar1, close=c2
+Subject: Quick follow-up about Moelis & Company
+
+Hi David,
+
+I enjoyed your talk on private credit at Midwest Finance Forum. Thanks again for your help when we were last in touch. I'm now applying for investment banking roles, and Moelis & Company is at the top of my list.
+
+Would you be comfortable referring me for a investment banking role at Moelis & Company, or pointing me to the right person to talk to?
+
+Thank you for your time, and I completely understand if you're too busy.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Sofia Martinez · Centerview Partners · no hook · hints {'tone': 'formal', 'ask': 'call_15'}
+phrases: subject=sr1, greeting=g1, opener=or1, ask=ar2, close=c3
+Subject: Quick follow-up about Centerview Partners
+
+Hi Sofia,
+
+Thanks again for your help when we were last in touch. I'm now applying for investment banking roles, and Centerview Partners is at the top of my list.
+
+If you think I'd be a fit, would you be open to passing my name to the recruiting team, or telling me who you'd suggest I speak with?
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Sofia Martinez · Centerview Partners · hook: talk · hints {'tone': 'formal', 'ask': 'call_15'}
+phrases: subject=sr1, greeting=g1, hook=ht1, opener=or1, ask=ar2, close=c3
+Subject: Quick follow-up about Centerview Partners
+
+Hi Sofia,
+
+I enjoyed your talk on private credit at Midwest Finance Forum. Thanks again for your help when we were last in touch. I'm now applying for investment banking roles, and Centerview Partners is at the top of my list.
+
+If you think I'd be a fit, would you be open to passing my name to the recruiting team, or telling me who you'd suggest I speak with?
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Aaron Brooks · PJT Partners · no hook · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=sr1, greeting=g2, opener=or1, ask=ar1, close=c3
+Subject: Quick follow-up about PJT Partners
+
+Hello Aaron,
+
+Thanks again for your help when we were last in touch. I'm now applying for investment banking roles, and PJT Partners is at the top of my list.
+
+Would you be comfortable referring me for a investment banking role at PJT Partners, or pointing me to the right person to talk to?
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Aaron Brooks · PJT Partners · hook: talk · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=sr1, greeting=g2, hook=ht2, opener=or1, ask=ar1, close=c3
+Subject: Quick follow-up about PJT Partners
+
+Hello Aaron,
+
+I came across your remarks on private credit at Midwest Finance Forum. Thanks again for your help when we were last in touch. I'm now applying for investment banking roles, and PJT Partners is at the top of my list.
+
+Would you be comfortable referring me for a investment banking role at PJT Partners, or pointing me to the right person to talk to?
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Hannah Kim · Evercore · no hook · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=sr1, greeting=g2, opener=or2, ask=ar1, close=c3
+Subject: Quick follow-up about Evercore
+
+Hello Hannah,
+
+I hope you've been well since we last spoke. I'm now recruiting for investment banking roles, and I'm especially interested in Evercore.
+
+Would you be comfortable referring me for a investment banking role at Evercore, or pointing me to the right person to talk to?
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Hannah Kim · Evercore · hook: talk · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=sr1, greeting=g2, hook=ht1, opener=or2, ask=ar1, close=c3
+Subject: Quick follow-up about Evercore
+
+Hello Hannah,
+
+I enjoyed your talk on private credit at Midwest Finance Forum. I hope you've been well since we last spoke. I'm now recruiting for investment banking roles, and I'm especially interested in Evercore.
+
+Would you be comfortable referring me for a investment banking role at Evercore, or pointing me to the right person to talk to?
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Ryan O'Connor · Lazard · no hook · hints {'tone': 'formal', 'ask': 'call_15'}
+phrases: subject=sr1, greeting=g1, opener=or1, ask=ar1, close=c3
+Subject: Quick follow-up about Lazard
+
+Hi Ryan,
+
+Thanks again for your help when we were last in touch. I'm now applying for investment banking roles, and Lazard is at the top of my list.
+
+Would you be comfortable referring me for a investment banking role at Lazard, or pointing me to the right person to talk to?
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Ryan O'Connor · Lazard · hook: talk · hints {'tone': 'formal', 'ask': 'call_15'}
+phrases: subject=sr1, greeting=g1, hook=ht1, opener=or1, ask=ar1, close=c3
+Subject: Quick follow-up about Lazard
+
+Hi Ryan,
+
+I enjoyed your talk on private credit at Midwest Finance Forum. Thanks again for your help when we were last in touch. I'm now applying for investment banking roles, and Lazard is at the top of my list.
+
+Would you be comfortable referring me for a investment banking role at Lazard, or pointing me to the right person to talk to?
+
+I appreciate you reading this, and no pressure at all.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Grace Liu · Moelis & Company · no hook · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=sr1, greeting=g2, opener=or1, ask=ar2, close=c1
+Subject: Quick follow-up about Moelis & Company
+
+Hello Grace,
+
+Thanks again for your help when we were last in touch. I'm now applying for investment banking roles, and Moelis & Company is at the top of my list.
+
+If you think I'd be a fit, would you be open to passing my name to the recruiting team, or telling me who you'd suggest I speak with?
+
+Thanks for considering it, and no worries if the timing doesn't work.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name
+
+=== Grace Liu · Moelis & Company · hook: talk · hints {'tone': 'warm', 'ask': 'call_15'}
+phrases: subject=sr1, greeting=g2, hook=ht2, opener=or1, ask=ar2, close=c1
+Subject: Quick follow-up about Moelis & Company
+
+Hello Grace,
+
+I came across your remarks on private credit at Midwest Finance Forum. Thanks again for your help when we were last in touch. I'm now applying for investment banking roles, and Moelis & Company is at the top of my list.
+
+If you think I'd be a fit, would you be open to passing my name to the recruiting team, or telling me who you'd suggest I speak with?
+
+Thanks for considering it, and no worries if the timing doesn't work.
+
+If you'd rather I not follow up, just let me know.
+
+Best,
+Your Name

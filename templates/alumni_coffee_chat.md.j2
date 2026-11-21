@@ -1,0 +1,23 @@
+---
+id: alumni_coffee_chat
+version: 1
+use_when: Shared school; ask for a short call
+requires: [shared_school]
+max_words: 150
+slots:
+  subject:     { category: subject.alumni }
+  greeting:    { category: greeting }
+  hook:        { category: hook, optional: true }   # draws from hook.<type> of the chosen hook
+  opener:      { category: opener.shared_school }
+  credibility: { category: credibility, optional: true }
+  ask:         { category: ask.call }
+  close:       { category: close }
+---
+{{ slot('greeting') }}
+
+{{ slot('hook') }} {{ slot('opener') }} {{ slot('credibility') }}
+
+{{ slot('ask') }}
+
+{{ slot('close') }}
+{{ signature }}

@@ -1,0 +1,15 @@
+# Fake finder results for --dry-run, keyed "First Last|domain". Mirrors Hunter's fields.
+# not_found = no address (no credit); claimed = HTTP 451 (person opted out of Hunter).
+"Jordan Lee|evercore.com":        { email: jordan.lee@evercore.com, score: 94, status: valid, sources: [{ uri: "https://example.org/forum-2026/speakers" }] }
+"Priya Shah|gs.com":              { email: priya.shah@gs.com, score: 91, status: valid }
+"Marcus Chen|gs.com":             { email: marcus.chen@gs.com, score: 88, status: valid }
+"Elena Rossi|lazard.com":         { email: elena.rossi@lazard.com, score: 95, status: accept_all }
+"David Park|moelis.com":          { email: david.park@moelis.com, score: 85, status: valid }
+"Sofia Martinez|centerviewpartners.com": { email: smartinez@centerviewpartners.com, score: 90, status: valid }
+"Aaron Brooks|pjtpartners.com":   { email: aaron.brooks@pjtpartners.com, score: 97, status: valid }
+"Hannah Kim|evercore.com":        { email: hannah.kim@evercore.com, score: 92, status: valid }
+"Ryan O'Connor|lazard.com":       { email: ryan.oconnor@lazard.com, score: 83, status: valid }
+"Grace Liu|moelis.com":           { email: grace.liu@moelis.com, score: 89, status: valid }
+"Nina Patel|gs.com":              not_found
+"Olivia Grant|pjtpartners.com":   { email: olivia.grant@pjtpartners.com, score: 70, status: unknown }
+"Ben Adler|centerviewpartners.com": claimed
