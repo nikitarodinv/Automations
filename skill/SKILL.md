@@ -12,7 +12,8 @@ Commands: `run <campaign> [--limit N] [--dry-run]`, `review [--full]`, `note <dr
 `deliver [campaign]`, `deliver --ack <file>`, `mark-sent <id>` / `mark-sent --all-delivered`, `mark-skip <id>`,
 `suppress <email>`, `set-email <campaign> <prospect_id> <email>`,
 `pick-template <campaign> <prospect_id> <template>`, `status`, `validate <file>`, `lint phrases`,
-`run <campaign> --estimate` (worst-case spend, spends nothing), `provider list` (keys and credits left), `ledger`.
+`run <campaign> --estimate` (worst-case spend, spends nothing), `provider list` (keys and credits left), `ledger`,
+`auth status`. (`auth microsoft` and `auth google` are interactive: ask the user to run them in a terminal.)
 
 Before a first real run of a campaign, run `run <campaign> --estimate` and show the user the result.
 
@@ -23,6 +24,9 @@ the mail create-draft tool with `to`, `subject` and `body`. Write each returned 
 `out/<run_id>/acks.jsonl` as `{"draft_id": "...", "mailbox_draft_id": "..."}`, then run
 `autonet deliver --ack out/<run_id>/acks.jsonl`.
 For `delivery: eml`, tell the user the drafts are in `out/<run_id>/eml/` (they open in Outlook as drafts).
+For `graph_draft` / `gmail_draft` the CLI saves the drafts itself; if it says the user isn't signed in,
+ask them to run `autonet auth microsoft` (or `google`) in a terminal.
+When the review queue shows a public detail, show its source link and quote with the draft.
 Post the run report exactly as the CLI prints it.
 
 New campaign (`/autonetworker new-campaign`): write `campaigns/<id>.yaml` modeled on

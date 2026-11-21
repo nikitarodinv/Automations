@@ -218,11 +218,11 @@ def test_pool_without_keys_fails_before_spending(cfg, campaign_file):
         run_campaign(cfg, campaign_file(source="pool"))
 
 
-def test_unimplemented_delivery_is_clear(cfg, campaign_file, tmp_path):
+def test_graph_delivery_without_app_registration_is_clear(cfg, campaign_file, tmp_path):
     csv = tmp_path / "c.csv"
     csv.write_text("First Name,Last Name,Email Address,Company,Position,Headline,Location,School\n"
                    "Jordan,Lee,j@evercore.com,Evercore,Associate,Investment Banking Associate,\"New York, NY\",Your University\n")
-    with pytest.raises(ConfigError, match="milestone 3"):
+    with pytest.raises(ConfigError, match="mailbox.microsoft.client_id"):
         run_campaign(cfg, campaign_file(delivery="graph_draft", source_options={"path": str(csv)}))
 
 
@@ -232,9 +232,15 @@ def test_no_send_capability_exists():
     import pkgutil
     import importlib
 
+    import re
+
+    send = re.compile(r"smtplib|sendMail|/send\b|drafts/send|messages/send|\.send\(\s*\)|Mail\.Send[\"' ]*[,\]]")
     for m in pkgutil.walk_packages(autonet.__path__, "autonet."):
         src = Path(importlib.import_module(m.name).__file__).read_text()
-        assert "smtplib" not in src and "sendMail" not in src and "Mail.Send\"" not in src, m.name
+        assert not send.search(src), (m.name, send.search(src).group(0))
+    from autonet.delivery.auth import MS_SCOPES
+
+    assert "Mail.Send" not in MS_SCOPES and "Mail.ReadWrite" in MS_SCOPES
 
 
 def test_limit_caps_paid_lookups(cfg):

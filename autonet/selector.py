@@ -84,7 +84,8 @@ class Decision:
 
 class RulesSelector:
     """Section 5 fallback: shared school and alumni_coffee_chat allowed -> that template;
-    senior or executive -> industry_question; otherwise the campaign's fallback.
+    a researched public detail -> saw_your_work; senior or executive -> industry_question;
+    otherwise the campaign's fallback.
     A pick whose `requires` this person doesn't meet falls through to the next eligible one."""
 
     name = "rules"
@@ -94,7 +95,8 @@ class RulesSelector:
                ledger: Any = None) -> Decision:
         from .compose import catalog_hash
 
-        chash = catalog_hash(allowed, {"fallback": fallback, "selector": self.version})
+        has_hook = any(h["tier"] in (1, 2) for h in sc.hooks)
+        chash = catalog_hash(allowed, {"fallback": fallback, "selector": self.version, "hook": has_hook})
         cached = store.get_decision(sc.prospect.prospect_id, chash, self.version)
         if cached and cached["campaign_id"] == campaign_id:
             r = cached["reason"] or {}
@@ -110,6 +112,8 @@ class RulesSelector:
         order: list[tuple[str, str]] = []
         if sc.same_school:
             order.append(("alumni_coffee_chat", "shared school"))
+        if any(h["tier"] in (1, 2) for h in sc.hooks):
+            order.append(("saw_your_work", "public detail found in research"))
         if sc.prospect.seniority in SENIOR:
             order.append(("industry_question", "senior or executive"))
         order.append((fallback, "campaign fallback"))

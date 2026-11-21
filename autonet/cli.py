@@ -27,6 +27,8 @@ provider_app = typer.Typer(no_args_is_help=True, help="Data providers: list, add
 app.add_typer(provider_app, name="provider")
 eval_app = typer.Typer(no_args_is_help=True, help="Measure the template selector.")
 app.add_typer(eval_app, name="eval")
+auth_app = typer.Typer(no_args_is_help=True, help="Sign in to your mailbox for graph_draft / gmail_draft.")
+app.add_typer(auth_app, name="auth")
 
 DRY = typer.Option(False, "--dry-run", help="Use fixture prospects and the separate dry-run database. Nothing reaches a mailbox.")
 DB = typer.Option(None, "--db", help="Override the database path.")
@@ -447,6 +449,53 @@ def eval_jev_cmd(
     gate = out["agreement"] >= 0.85
     typer.secho("ready for scheduled runs (≥85%)" if gate else "keep reviewing picks by hand (<85%)",
                 fg=typer.colors.GREEN if gate else typer.colors.YELLOW)
+
+
+# --------------------------------------------------------------------------- mailbox sign-in
+@auth_app.command("microsoft")
+@_guard
+def auth_microsoft() -> None:
+    """Sign in with a device code (works with school accounts). Asks for Mail.ReadWrite only."""
+    from .delivery.auth import microsoft_from_config
+
+    a = microsoft_from_config(_cfg())
+    a.device_login(echo=typer.echo)
+    typer.secho(f"signed in; token cached at {a.cache.path} (mode 600)", fg=typer.colors.GREEN)
+
+
+@auth_app.command("google")
+@_guard
+def auth_google() -> None:
+    """Sign in through your browser. Asks for gmail.compose (this tool only ever creates drafts)."""
+    from .delivery.auth import google_from_config
+
+    a = google_from_config(_cfg())
+    a.browser_login(echo=typer.echo)
+    typer.secho(f"signed in; token cached at {a.cache.path} (mode 600)", fg=typer.colors.GREEN)
+
+
+@auth_app.command("status")
+@_guard
+def auth_status() -> None:
+    """Whether a mailbox token is cached, and when it expires."""
+    import time
+
+    from .delivery.auth import google_from_config, microsoft_from_config
+
+    cfg = _cfg()
+    for label, build_ in (("microsoft", microsoft_from_config), ("google", google_from_config)):
+        try:
+            a = build_(cfg)
+        except ConfigError as e:
+            typer.echo(f"{label}: not configured ({e})")
+            continue
+        tok = a.cache.load() if a.cache else None
+        if not tok:
+            typer.echo(f"{label}: not signed in")
+        else:
+            mins = int((tok.get("expires_at", 0) - time.time()) / 60)
+            refresh = "refreshable" if tok.get("refresh_token") else "no refresh token"
+            typer.echo(f"{label}: signed in · access token {'valid ' + str(mins) + ' min' if mins > 0 else 'expired'} · {refresh}")
 
 
 def main() -> None:  # pragma: no cover

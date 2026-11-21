@@ -25,7 +25,7 @@ DEFAULTS: dict[str, Any] = {
         "include_opt_out_line": True,
         "opt_out_line": "If you'd rather I not follow up, just let me know.",
     },
-    "budgets": {"hunter_monthly": 50, "provider_monthly": {}, "search_monthly": 0},
+    "budgets": {"hunter_monthly": 50, "provider_monthly": {}, "search_monthly": 1000},
     "retention_days": 365,
     "dry_run": {
         "prospects": "fixtures/dryrun/prospects.jsonl",

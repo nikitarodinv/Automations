@@ -49,7 +49,7 @@ templates:
   fallback: alumni_coffee_chat
 
 research:
-  enabled: false                   # web research arrives in milestone 3
+  enabled: false                   # true = search + read public pages for one work detail (needs BRAVE_API_KEY, ANTHROPIC_API_KEY)
   search_provider: brave
   max_searches_per_prospect: 3
   max_pages: 10
@@ -67,6 +67,6 @@ source: csv
 source_options:
   path: lists/contacts.csv         # see lists/example_contacts.csv for the columns
 
-delivery: eml                      # graph_draft arrives in milestone 3; eml opens in Outlook as a draft
+delivery: eml                      # eml opens in Outlook as a draft; graph_draft once your app registration is set up
 review_before_delivery: false      # true = stop at drafted so you can add a note
 # schedule: "30 8 * * 1-5"         # optional, cron syntax, local time

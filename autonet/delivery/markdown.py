@@ -20,6 +20,8 @@ def render_draft_md(d: dict[str, Any], mask: bool = False) -> str:
         f"- **Template:** {d['template_id']} v{d['template_version']} · selector `{a.get('selector')}` · {a.get('selector_reason', '')}",
         f"- **Phrases:** {', '.join(f'{k}={v}' for k, v in (d.get('phrase_ids') or {}).items())} (bank v{d['phrase_bank_version']})",
         f"- **Hook:** {a.get('hook_summary') or 'none (profile-based opener)'}",
+        *([f"- **Source quote:** \"{a['hook_quote']}\""] if a.get("hook_quote") else []),
+        *([f"- **Polish:** {'applied' if a['polish'].get('applied') else 'kept original: ' + (a['polish'].get('reason') or '')}"] if a.get("polish") else []),
         f"- **LinkedIn:** {a.get('linkedin_url') or 'n/a'}",
         f"- **State:** {d['state']}",
     ]

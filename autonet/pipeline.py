@@ -3,6 +3,8 @@ output back, and commits after every prospect, so any stage can be rerun alone."
 
 from __future__ import annotations
 
+import os
+
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -18,7 +20,7 @@ from .delivery import get_delivery, write_review
 from .delivery.outlook_mcp import read_acks
 from .draft import lint_draft, personal_values
 from .emails import ACCEPTED, decide
-from .errors import ConfigError, DataError, QuotaError, TransientError
+from .errors import AuthError, ConfigError, DataError, QuotaError, TransientError
 from .ledger import Ledger, RunBudget
 from .logs import JsonLog
 from .matching import apply_filters, fill_company_domain, infer_seniority, qualification_score, shared_employer, shared_school
@@ -64,6 +66,11 @@ class Report:
             + (f" → {c['delivered']} delivered ({self.delivery})" if self.delivery else ""),
             f"Finder credits {self.credits:g} of {self.credit_budget:g} · model calls {self.llm_calls:g} of {self.llm_budget}",
         ]
+        if c["searches"] or c["pages_read"] or c["hooks_found"]:
+            lines.insert(3, f"Research: {c['hooks_found']} with a public detail · {c['searches']} searches · "
+                            f"{c['pages_read']} pages read" + (f" · {c['reselected']} template switches" if c["reselected"] else ""))
+        if c["polished"] or c["polish_rejected"]:
+            lines.append(f"Polish: {c['polished']} applied, {c['polish_rejected']} rejected by the guards")
         if self.needs_you:
             lines.append("Needs you: " + ", ".join(f"{n} {k}" for k, n in sorted(self.needs_you.items())))
         lines += [f"  {d}" for d in self.details]
@@ -95,6 +102,9 @@ class Ctx:
     max_drafts: int = 15
     pool: Any = None
     selector: Any = None
+    llm: Any = None
+    researcher: Any = None
+    disabled: dict[str, str] = field(default_factory=dict)
     finder_spent: float = 0.0
     live_jev: bool = False
 
@@ -150,7 +160,19 @@ def check_campaign(cfg: Config, campaign: Campaign, dry_run: bool = False) -> tu
     if not dry_run:
         warnings += provider_warnings(cfg, campaign)
         if campaign["delivery"] not in IMPLEMENTED_DELIVERY:
-            warnings.append(f"delivery '{campaign['delivery']}' arrives in milestone 3; use eml, markdown or outlook_draft")
+            warnings.append(f"delivery '{campaign['delivery']}' is unknown")
+        mailbox = cfg.data.get("mailbox") or {}
+        if campaign["delivery"] == "graph_draft" and not (mailbox.get("microsoft") or {}).get("client_id"):
+            warnings.append("delivery graph_draft: set mailbox.microsoft.client_id in config.yaml, then `autonet auth microsoft`")
+        if campaign["delivery"] == "gmail_draft":
+            warnings.append("delivery gmail_draft: run `autonet auth google` once before the first run")
+        if campaign["research"].get("enabled"):
+            from .search import PROVIDERS
+
+            sp = campaign["research"].get("search_provider", "brave")
+            env = getattr(PROVIDERS.get(sp), "key_env", "")
+            if env and not os.environ.get(env):
+                warnings.append(f"research: {env} not set; only Hunter's source pages will be read")
         if campaign["source"] == "csv":
             p = cfg.resolve(campaign["source_options"]["path"])
             if not p.is_file():
@@ -582,13 +604,98 @@ def stage_find_emails(ctx: Ctx) -> None:
 
 
 # --------------------------------------------------------------------------- stage 4
+def _llm(ctx: Ctx) -> Any:
+    if ctx.llm is None:
+        from .llm import from_config
+
+        ctx.llm = from_config(ctx.cfg)
+    return ctx.llm
+
+
+def _researcher(ctx: Ctx) -> Any:
+    from .fetch import Fetcher
+    from .research import Researcher
+    from .search import get_search
+
+    rcfg = ctx.campaign["research"]
+    search = None
+    try:
+        search = get_search(rcfg.get("search_provider", "brave"))
+    except ConfigError as e:
+        ctx.report.notes.append(f"research: {e}; using Hunter's source pages only")
+    jev = None
+    jcfg = ctx.cfg["jev"]
+    if jcfg.get("provider", "off") not in (None, False, "off"):
+        from .jev import JevClient, JevIdentity
+
+        try:
+            jev = JevIdentity(JevClient(route=jcfg["provider"], model=jcfg.get("model"), timeout=float(jcfg.get("timeout", 10))))
+        except ConfigError as e:
+            ctx.report.notes.append(f"research: {e}; pages checked by name only")
+    monthly = (ctx.cfg.data.get("budgets") or {}).get("search_monthly")
+    name = getattr(search, "name", "search")
+
+    def search_ok() -> bool:
+        if monthly is None:
+            return True
+        start = now_utc().replace(day=1, hour=0, minute=0, second=0)
+        return ctx.ledger.total_since(name, iso(start), "searches") < monthly
+
+    blocked = list(dict.fromkeys(["linkedin.com", *rcfg.get("blocked_domains", [])]))
+    return Researcher(research_cfg=rcfg, search=search, fetcher=Fetcher(blocked_domains=blocked), llm=_llm(ctx),
+                      jev=jev, ledger=ctx.ledger, search_ok=search_ok)
+
+
 def stage_research(ctx: Ctx) -> None:
-    """Milestone 1: no web research. Prospects pass through; any stored hooks (e.g. your notes) are used."""
-    if ctx.campaign["research"].get("enabled") and not ctx.dry_run:
-        ctx.report.notes.append("research.enabled: web research arrives in milestone 3; using profile-based openers")
-    for cp in ctx.store.in_state(ctx.cid, "email_found"):
-        ctx.store.set_state(ctx.cid, cp["prospect_id"], "researched", run_id=ctx.run_id)
+    """Stage 4. Research never blocks a draft: whatever happens, the prospect moves on to `researched`."""
+    todo = ctx.store.in_state(ctx.cid, "email_found")
+    rcfg = ctx.campaign["research"]
+    if not todo:
+        return
+    if not rcfg.get("enabled") or ctx.dry_run:
+        if rcfg.get("enabled") and ctx.dry_run:
+            ctx.report.notes.append("dry run: web research skipped (it would search and fetch live pages)")
+        for cp in todo:
+            ctx.store.set_state(ctx.cid, cp["prospect_id"], "researched", run_id=ctx.run_id)
+            ctx.commit()
+        return
+    researcher = ctx.researcher or _researcher(ctx)
+    ctx.researcher = researcher
+    for cp in todo:
+        p = ctx.store.get_prospect(cp["prospect_id"])
+        assert p
+        lk = ctx.store.get_lookup(*_lookup_key(p)) or {}
+        try:
+            res = researcher.run(p, lk.get("sources") or [])
+        except Exception as e:  # never let research block a draft
+            ctx.report.notes.append(f"research failed for {p.full_name}: {type(e).__name__}: {e}")
+            res = None
+        if res is not None:
+            ctx.report.counts["searches"] += res.searches
+            ctx.report.counts["pages_read"] += res.pages
+            for h in res.hooks:
+                ctx.store.save_hook(h)
+            if res.hooks:
+                ctx.report.counts["hooks_found"] += 1
+                ctx.log.write(run_id=ctx.run_id, stage="research", prospect_id=p.prospect_id, status="hook",
+                              hook=res.hooks[0]["type"], url=res.hooks[0]["source_url"])
+                if rcfg.get("reselect", True) and any(h["tier"] in (1, 2) for h in res.hooks):
+                    # Jev (or the rules) may switch to a template that uses this kind of detail.
+                    sel = ctx.selector or selector_for(ctx)
+                    ctx.selector = sel
+                    before = (ctx.store.latest_decision(ctx.cid, p.prospect_id) or {}).get("template")
+                    try:
+                        d = sel.select(ctx.store, ctx.cid, selection_context(ctx, p), ctx.allowed,
+                                       ctx.campaign["templates"]["fallback"], ctx.ledger)
+                        if d.template and d.template != before and d.route == "continue":
+                            ctx.report.counts["reselected"] += 1
+                    except QuotaError as e:
+                        ctx.report.notes.append(f"template re-check skipped: {e}")
+            ctx.report.notes += res.notes
+        ctx.store.set_state(ctx.cid, p.prospect_id, "researched", run_id=ctx.run_id)
         ctx.commit()
+    for k, v in researcher.disabled.items():
+        ctx.report.notes.append(f"research {k}: {v}")
 
 
 # --------------------------------------------------------------------------- stage 5 + 6 (compose, lint)
@@ -641,6 +748,9 @@ def compose_one(ctx: Ctx, p: Prospect, existing: dict[str, Any] | None = None) -
         hints=decision.get("hints") or {}, hook=hook, signature=ctx.signature, opt_out_line=opt_out,
         used_at_company=used,
     )
+    polish_audit = None
+    if c.ok and ctx.cfg["draft"].get("polish") and not ctx.dry_run:
+        c, polish_audit = _maybe_polish(ctx, c, template, existing)
     if c.ok:
         lint = lint_draft(
             c, p, template, email["email"] if email else None, _others(ctx, p.prospect_id),
@@ -670,6 +780,8 @@ def compose_one(ctx: Ctx, p: Prospect, existing: dict[str, Any] | None = None) -
             "email_decision": email["decision"] if email else None, "email_provider": email["provider"] if email else None,
             "catch_all": bool(email and email["decision"] == "accepted_catch_all"),
             "hook_summary": hook_summary, "body_words": word_count(c.body),
+            "hook_quote": hook.get("quote") if hook else None, "hook_url": hook.get("source_url") if hook else None,
+            "polish": polish_audit,
         },
         "state": "drafted" if not lint["blocks"] else "blocked",
         "delivery": existing.get("delivery") if existing else None,
@@ -685,6 +797,47 @@ def compose_one(ctx: Ctx, p: Prospect, existing: dict[str, Any] | None = None) -
     else:
         store.set_state(ctx.cid, p.prospect_id, "drafted", run_id=ctx.run_id)
     return rec
+
+
+def _maybe_polish(ctx: Ctx, c: Composed, template: Template, existing: dict[str, Any] | None) -> tuple[Composed, dict[str, Any]]:
+    """Stage 6 step 1: one model call to smooth grammar; guarded, and reused while the input is unchanged."""
+    from .draft import polish
+
+    key = short_hash(c.subject, c.body, length=12)
+    prev = ((existing or {}).get("audit") or {}).get("polish") or {}
+    if prev.get("input") == key:
+        if prev.get("applied"):
+            return _apply_polish(c, prev["subject"], prev["body"]), prev
+        return c, prev
+    if "polish" in ctx.disabled:
+        return c, {"input": key, "applied": False, "reason": ctx.disabled["polish"]}
+    try:
+        ctx.ledger.require_llm_call()
+    except QuotaError as e:
+        return c, {"input": key, "applied": False, "reason": str(e)}
+    try:
+        r = polish(c.subject, c.body, template.max_words, _llm(ctx))
+    except AuthError as e:
+        ctx.disabled["polish"] = f"polish unavailable ({e})"
+        ctx.report.notes.append(ctx.disabled["polish"])
+        return c, {"input": key, "applied": False, "reason": ctx.disabled["polish"]}
+    except (TransientError, DataError) as e:
+        return c, {"input": key, "applied": False, "reason": str(e)}
+    finally:
+        ctx.ledger.record("claude", "polish", llm_calls=1)
+    audit = {"input": key, "applied": r.applied, "reason": r.reason, "subject": r.subject, "body": r.body}
+    if r.applied:
+        ctx.report.counts["polished"] += 1
+        return _apply_polish(c, r.subject, r.body), audit
+    ctx.report.counts["polish_rejected"] += 1
+    return c, audit
+
+
+def _apply_polish(c: Composed, subject: str, body: str) -> Composed:
+    from dataclasses import replace
+
+    tail = c.full_body[len(c.body):] if c.full_body.startswith(c.body) else "\n\n" + c.full_body.split("\n\n", 1)[-1]
+    return replace(c, subject=subject, body=body, full_body=body + tail)
 
 
 def _local_midnight_utc_iso() -> str:
@@ -733,15 +886,26 @@ def stage_deliver(ctx: Ctx, delivery: str | None = None) -> list[dict[str, Any]]
     pending = [d for d in ctx.store.drafts(ctx.cid, ["drafted"]) if not d.get("delivery_ref")]
     if not pending:
         return []
-    adapter = get_delivery(name, ctx.out_dir)
-    results = adapter.deliver(pending)
-    for r in results:
+    adapter = get_delivery(name, ctx.out_dir, ctx.cfg)
+
+    def record(r: Any) -> None:
         ctx.store.set_draft_state(r.draft_id, r.state, delivery=name, ref=r.ref)
         d = ctx.store.get_draft(r.draft_id)
         if r.state == "delivered" and d:
             ctx.store.set_state(ctx.cid, d["prospect_id"], "delivered")
             ctx.report.counts["delivered"] += 1
-        ctx.commit()
+        ctx.commit()   # the mailbox id is saved before the next draft is created: no duplicates after a crash
+
+    results = []
+    if hasattr(adapter, "deliver_one"):
+        for d in pending:
+            r = adapter.deliver_one(d)
+            record(r)
+            results.append(r)
+    else:
+        results = adapter.deliver(pending)
+        for r in results:
+            record(r)
     ctx.report.delivery = name
     if name == "outlook_draft":
         ctx.report.notes.append(f"{len(results)} drafts written to {ctx.out_dir / 'drafts.jsonl'}; create them in Outlook, then run `autonet deliver --ack`")

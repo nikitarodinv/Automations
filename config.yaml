@@ -30,18 +30,34 @@ providers:
 limits:
   daily_draft_cap: 25             # across all campaigns
 
+# Text model for Stage 4 extraction and the optional polish. Credentials: ANTHROPIC_API_KEY,
+# ANTHROPIC_AUTH_TOKEN, or an `ant auth login` profile.
+llm:
+  model: claude-opus-5-5
+  fallbacks: default              # server-side refusal fallback; off to disable
+
 draft:
-  polish: false                   # milestone 3
+  polish: false                   # true = one model call per draft to smooth grammar (guarded: no new facts, ≤25% changed)
   include_opt_out_line: true
   opt_out_line: "If you'd rather I not follow up, just let me know."
 
 budgets:                          # monthly ceilings, checked against the ledger
   hunter_monthly: 50
   provider_monthly: {}
-  search_monthly: 0
+  search_monthly: 1000            # web searches across all campaigns (Brave's free tier is limited; check yours)
 
 retention_days: 365
 
 dry_run:
   prospects: fixtures/dryrun/prospects.jsonl
   emails: fixtures/dryrun/emails.yaml
+
+# Mailbox drafts (delivery: graph_draft | gmail_draft). Tokens are cached outside the repo, mode 600.
+mailbox:
+  microsoft:
+    client_id: ""                 # your Entra app registration (public client, Mail.ReadWrite only, no Mail.Send)
+    tenant: organizations         # or your school's tenant id
+    # token_cache: ~/.config/autonetworker/microsoft_token.json
+  google:
+    # client_secrets: ~/.config/autonetworker/google_client_secret.json   # "Desktop app" OAuth client JSON
+    # token_cache: ~/.config/autonetworker/google_token.json

@@ -49,7 +49,7 @@ DEFAULTS: dict[str, Any] = {
 
 # Implemented in milestone 1. Others validate but fail at run time with a clear message.
 IMPLEMENTED_SOURCES = {"pool", "apollo", "pdl", "hunter_domain", "csv", "urls"}
-IMPLEMENTED_DELIVERY = {"eml", "markdown", "outlook_draft"}
+IMPLEMENTED_DELIVERY = {"eml", "markdown", "outlook_draft", "graph_draft", "gmail_draft"}
 
 
 def _with_defaults(base: Any, raw: Any) -> Any:

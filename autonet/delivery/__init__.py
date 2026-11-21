@@ -11,15 +11,19 @@ from .markdown import MarkdownDelivery, write_review
 from .outlook_mcp import OutlookMcpDelivery
 
 ADAPTERS = {"eml": EmlDelivery, "markdown": MarkdownDelivery, "outlook_draft": OutlookMcpDelivery}
-LATER = {
-    "graph_draft": "Microsoft Graph drafts arrive in milestone 3; use delivery: eml for now",
-    "gmail_draft": "Gmail drafts arrive in milestone 3; use delivery: eml for now",
-}
 
 
-def get_delivery(name: str, out_dir: Path) -> Any:
-    if name in LATER:
-        raise ConfigError(LATER[name])
+def get_delivery(name: str, out_dir: Path, cfg: Any = None) -> Any:
+    if name == "graph_draft":
+        from .auth import microsoft_from_config
+        from .graph import GraphDelivery
+
+        return GraphDelivery(out_dir, microsoft_from_config(cfg))
+    if name == "gmail_draft":
+        from .auth import google_from_config
+        from .gmail import GmailDelivery
+
+        return GmailDelivery(out_dir, google_from_config(cfg))
     if name not in ADAPTERS:
         raise ConfigError(f"unknown delivery '{name}'")
     return ADAPTERS[name](out_dir)

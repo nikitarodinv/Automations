@@ -4,7 +4,7 @@ Turns a campaign file (keywords, companies, filters) into personalized networkin
 drafts waiting for your review. Backend for the `autonetworker` OpenClaw skill. **It never sends
 email.** Full design: the Autonetworker technical spec (Nov 21, 2026).
 
-## Status: milestones 1 and 2 done
+## Status: milestones 1, 2 and 3 done
 
 | Area | Works now | Later |
 | --- | --- | --- |
@@ -12,10 +12,10 @@ email.** Full design: the Autonetworker technical spec (Nov 21, 2026).
 | Stage 1, discovery | `pool` (PDL, then Apollo), `pdl`, `apollo`, `hunter_domain`, `csv`, `urls`; local filters, scoring, per-company caps, suppression, cooldown, EU/UK excluded by default; paging continues across runs | |
 | Stage 2, template | Jev via TypeSafe, OpenRouter or Cloudflare; decision cache; rules fallback on errors, refusals or a missing key; `autonet eval jev` | |
 | Stage 3, email | Finder waterfall (Hunter → Prospeo → Apollo), Hunter verifier with 202 polling and 222 retry next run, two-finder confirmation, 451 suppression, allowances with even pacing, run and monthly budgets | |
-| Stage 4, research | Your notes (tier-0 hooks) | Web research, Jev identity check and re-check (M3) |
+| Stage 4, research | Hunter's source pages + up to 3 web searches (Brave); robots.txt, 1 req/s per site, no LinkedIn, no login pages; name + company/school check, then Jev's identity check (≥0.8); one Claude extraction call; every hook verified in code (quote word for word, fields inside the quote, date, age limits, work topics only); Jev re-checks the template when a detail turns up; your notes (tier 0) | |
 | Stage 5, compose | Templates, phrase bank, deterministic phrase picking, colleague dedupe, `autonet lint phrases` | |
-| Stage 6, draft | All lint checks, signature, opt-out line | Optional polish (M3) |
-| Delivery | `eml` (opens in Outlook as a draft), `markdown`, `outlook_draft` (jsonl + ack) | `graph_draft`, `gmail_draft` (M3) |
+| Stage 6, draft | All lint checks, signature, opt-out line; optional polish (one Claude call, rejected if it adds a name or number, changes >25%, or touches the greeting) | |
+| Delivery | `eml`, `markdown`, `outlook_draft` (jsonl + ack), `graph_draft` (device-code sign-in, Mail.ReadWrite only), `gmail_draft` (browser sign-in) | |
 | Providers | YAML manifests, `@register` classes, entry-point plugins; `autonet provider list / new / record / test / smoke` | |
 
 `--dry-run` uses fake prospects and fake finder results from `fixtures/dryrun/`, with a separate
@@ -46,7 +46,9 @@ Put keys in the environment (for the OpenClaw skill: `~/.openclaw/openclaw.json`
 | `PDL_API_KEY` | People Data Labs | 100 records/month | Finding people (`pdl`), filling in `urls` |
 | `APOLLO_API_KEY` | Apollo | 75 credits/month | Search is free; 1 credit per person enriched; also a finder |
 | `PROSPEO_API_KEY` | Prospeo | 75 credits/month | Backup finder |
-| `TYPESAFE_API_KEY` | Jev (TypeSafe) | pay per token, ~$0.001 a run | Template choice (or `OPENROUTER_API_KEY`, or `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`) |
+| `TYPESAFE_API_KEY` | Jev (TypeSafe) | pay per token, ~$0.001 a run | Template choice and page identity checks (or `OPENROUTER_API_KEY`, or `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`) |
+| `BRAVE_API_KEY` | Brave Search | check your plan | Stage 4 web searches (without it, only Hunter's source pages are read) |
+| `ANTHROPIC_API_KEY` | Claude (`claude-opus-5-5`) | pay per token | Stage 4 extraction and the optional polish (or `ant auth login`) |
 
 Then:
 
@@ -61,6 +63,36 @@ uv run autonet run ib-alumni-fall26             # set source: pool in the campai
 The pool spends each free allowance evenly over the days left in the month (`providers.pace`),
 keeps `providers.reserve` credits back for manual lookups, and trusts Hunter's own balance over the
 ledger. Paid email lookups stop once the run has enough addresses for its draft slots.
+
+## Research and polish
+
+Set `research.enabled: true` in the campaign (and `BRAVE_API_KEY`). Each person you can email gets
+up to 3 searches plus the pages Hunter found their address on; at most 10 pages are read, politely.
+A detail only reaches a draft if its supporting quote is found word for word on the page, its fields
+appear in that quote, its date parses and is recent enough (talks and writing 24 months; deals,
+promotions and company news 180 days), and it's about work. `review.md` shows the source link and
+quote for every detail, so you can check it before you send. When nothing qualifies, the email uses
+the shared-school or shared-employer opener; research never blocks a draft. Cost: about 3 searches,
+up to 10 Jev identity checks (fractions of a cent) and one Claude call per person.
+
+`draft.polish: true` in `config.yaml` adds one Claude call per draft to smooth grammar. The result is
+thrown away (and the original kept, with the reason in the audit) if it adds any name or number,
+changes more than 25% of the text, runs over the length limits, or changes the greeting.
+
+## Mailbox drafts
+
+- **Outlook (school account):** register an app in Microsoft Entra (public client, delegated
+  `Mail.ReadWrite` only, no `Mail.Send`), put its ID in `mailbox.microsoft.client_id`, set
+  `delivery: graph_draft`, and run `uv run autonet auth microsoft` once. If your school shows
+  "Approval required", request it there, or use `delivery: eml` (no permissions needed). A token
+  that carries `Mail.Send` is refused.
+- **Gmail:** create a "Desktop app" OAuth client in Google Cloud, save its JSON to
+  `~/.config/autonetworker/google_client_secret.json`, set `delivery: gmail_draft`, and run
+  `uv run autonet auth google`. Gmail has no drafts-only scope: `gmail.compose` could send a draft,
+  but this code never calls a send endpoint (a test checks that).
+- Tokens are cached in `~/.config/autonetworker/` with mode 600. `autonet auth status` shows them.
+- Each mailbox draft ID is saved before the next draft is created, so a crash mid-delivery never
+  creates the same draft twice.
 
 ## A run from your own list
 
@@ -107,19 +139,22 @@ Add `--dry-run` to any of them to work against the dry-run database.
 ## Layout
 
 ```text
-autonet/          cli, pipeline (stages), campaign, matching, selector, jev, emails, compose, draft,
-                  store (SQLite), ledger, pool, http, estimate, delivery/ (eml, markdown, outlook_mcp)
+autonet/          cli, pipeline (stages), campaign, matching, selector, jev, emails, research, search, fetch,
+                  llm, compose, draft, store (SQLite), ledger, pool, http, estimate,
+                  delivery/ (eml, markdown, outlook_mcp, graph, gmail, auth)
 autonet/providers/ base, registry, manifest, generic_http, contract, tools,
                   hunter, pdl, apollo, csv_file, urls, fixture
 providers/        hunter, pdl, apollo, prospeo (.yaml manifests)
 schemas/          campaign, phrase_bank, template, hook, provider (.schema.json)
 jev/eval/         cases.example.jsonl
+research/         extract_prompt.md
 campaigns/        ib-alumni-fall26.yaml
 templates/        alumni_coffee_chat, industry_question, referral_ask, saw_your_work (.md.j2)
 phrases/          networking.yaml
 fixtures/dryrun/  fake prospects and finder results for --dry-run
 skill/SKILL.md    copy to ~/.openclaw/workspace/skills/autonetworker/
 tests/            unit/, test_pipeline.py (acceptance checks), test_pool_providers.py, test_jev.py,
+                  test_research.py, test_polish_mailbox.py,
                   test_golden.py, golden/, fixtures/providers/ (recorded replies for the contract suite)
 ```
 
@@ -156,3 +191,17 @@ Milestone 2, checked against each provider's docs on 2026-11-21:
   of aborting: section 5's fallback rule takes precedence over the general auth-error rule.
 - **A bare LinkedIn URL** (`source: urls`) that no enricher recognizes gets its name and company from
   Hunter's `linkedin_handle` lookup, and its template is picked again once that's known.
+
+Milestone 3:
+
+- **The text model is Claude (`claude-opus-5-5`)** through the official SDK, with structured outputs
+  (JSON that must fit a schema) and server-side refusal fallbacks on. Extraction runs at effort
+  `medium`, polish at `low`.
+- **Only excerpts around the person's name** (up to 6,000 characters a page) go to the extraction
+  call, to keep cost down; the word-for-word quote check still runs on the full fetched text.
+- **A hook needs a date.** If neither the model nor the page gives one that parses, the hook is
+  dropped, since its age can't be checked. Future-dated events are dropped too.
+- **The rules fallback uses research:** shared school → `alumni_coffee_chat`; otherwise a verified
+  talk, article, podcast, deal or promotion → `saw_your_work`.
+- **Robots.txt that can't be fetched (5xx or no connection) means no fetch** for that site, per RFC 9309.
+- **Polish runs only on real runs**, and is reused when a draft is rebuilt with unchanged text.

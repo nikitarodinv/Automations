@@ -253,3 +253,29 @@ def load_cases(path: Path) -> list[dict[str, Any]]:
                 raise ConfigError(f"{path.name}:{i}: each case needs 'prospect' and 'label'")
             out.append(c)
     return out
+
+
+# ---------------------------------------------------------------------------- identity (Stage 4)
+class JevIdentity:
+    """One yes/no question per fetched page: is the person on this page the prospect?"""
+
+    def __init__(self, client: JevClient):
+        self.client = client
+
+    def same_person(self, p: Prospect, url: str, page_excerpt: str) -> float:
+        state = {
+            "prospect": {"name": p.full_name, "company": p.company.name, "title": p.current_title,
+                         "schools": p.schools, "location": p.location},
+            "page": {"url": url, "excerpt": page_excerpt},
+        }
+        q = {"same_person": {
+            "type": "noul",
+            "instructions": "Is the person this page describes the same person as the prospect?",
+            "criteria": {"true": "Same name and the same employer or school, with nothing contradicting it",
+                         "false": "A different person who shares the name, or not enough to tell"},
+        }}
+        reply = self.client.ask(state, q)
+        a = reply.answers.get("same_person") or {}
+        if a.get("type") != "noul" or not isinstance(a.get("noul"), (int, float)):
+            raise DataError("jev: identity question not answered")
+        return float(a["noul"])
