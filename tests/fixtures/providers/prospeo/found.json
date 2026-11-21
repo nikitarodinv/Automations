@@ -1,0 +1,42 @@
+{
+  "role": "finder",
+  "kind": "found",
+  "input": {
+    "first_name": "Jordan",
+    "last_name": "Lee",
+    "company": {
+      "name": "Evercore",
+      "domain": "evercore.com"
+    }
+  },
+  "replies": [
+    {
+      "status": 200,
+      "json": {
+        "error": false,
+        "free_enrichment": false,
+        "person": {
+          "person_id": "x1",
+          "first_name": "Jordan",
+          "last_name": "Lee",
+          "email": {
+            "status": "VERIFIED",
+            "revealed": true,
+            "email": "jordan.lee@evercore.com",
+            "verification_method": "SMTP"
+          }
+        },
+        "company": {
+          "name": "Evercore",
+          "domain": "evercore.com"
+        }
+      }
+    }
+  ],
+  "expect": {
+    "email": "jordan.lee@evercore.com",
+    "status": "valid",
+    "score": 85,
+    "credits": 1
+  }
+}

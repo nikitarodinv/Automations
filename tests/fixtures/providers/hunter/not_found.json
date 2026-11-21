@@ -1,0 +1,35 @@
+{
+  "role": "finder",
+  "kind": "not_found",
+  "input": {
+    "first_name": "Zzyzx",
+    "last_name": "Lee",
+    "company": {
+      "name": "Evercore",
+      "domain": "evercore.com"
+    }
+  },
+  "replies": [
+    {
+      "status": 200,
+      "json": {
+        "data": {
+          "first_name": "Zzyzx",
+          "last_name": "Lee",
+          "email": null,
+          "score": null,
+          "domain": "evercore.com",
+          "verification": {
+            "date": null,
+            "status": null
+          }
+        },
+        "meta": {}
+      }
+    }
+  ],
+  "expect": {
+    "status": "not_found",
+    "credits": 0
+  }
+}

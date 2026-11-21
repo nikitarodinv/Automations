@@ -23,6 +23,10 @@ from .store import Store
 app = typer.Typer(add_completion=False, no_args_is_help=True, help="Draft personalized networking emails. Never sends.")
 lint_app = typer.Typer(no_args_is_help=True, help="Quality checks.")
 app.add_typer(lint_app, name="lint")
+provider_app = typer.Typer(no_args_is_help=True, help="Data providers: list, add, record fixtures, contract-test.")
+app.add_typer(provider_app, name="provider")
+eval_app = typer.Typer(no_args_is_help=True, help="Measure the template selector.")
+app.add_typer(eval_app, name="eval")
 
 DRY = typer.Option(False, "--dry-run", help="Use fixture prospects and the separate dry-run database. Nothing reaches a mailbox.")
 DB = typer.Option(None, "--db", help="Override the database path.")
@@ -86,9 +90,16 @@ def run(
     fresh: bool = typer.Option(False, "--fresh", help="With --dry-run: wipe the dry-run database first."),
     db: Optional[Path] = DB,
     debug: bool = DEBUG,
+    estimate: bool = typer.Option(False, "--estimate", help="Print the worst-case spend for this run and stop. Spends nothing."),
+    live_jev: bool = typer.Option(False, "--live-jev", help="With --dry-run: ask Jev for real (costs a fraction of a cent)."),
 ) -> None:
     """Run every stage in order and print the run report."""
-    text, ctx = run_campaign(_cfg(), campaign, dry_run=dry_run, limit=limit, db=db, fresh=fresh, debug=debug)
+    if estimate:
+        from .estimate import estimate_text
+
+        typer.echo(estimate_text(_cfg(), campaign, limit=limit, db=db))
+        return
+    text, ctx = run_campaign(_cfg(), campaign, dry_run=dry_run, limit=limit, db=db, fresh=fresh, debug=debug, live_jev=live_jev)
     typer.echo(text)
     if (ctx.out_dir / "review.md").is_file():
         typer.echo(f"Drafts: {ctx.out_dir / 'review.md'}")
@@ -300,6 +311,142 @@ def lint_phrases_cmd(bank: Path = typer.Option(Path("phrases/networking.yaml"), 
     if errors:
         raise typer.Exit(1)
     typer.secho(f"ok: {n} phrases in {len(pb.categories)} categories · {len(templates)} templates", fg=typer.colors.GREEN)
+
+
+# --------------------------------------------------------------------------- providers
+@provider_app.command("list")
+@_guard
+def provider_list(db: Optional[Path] = DB) -> None:
+    """Every provider the CLI knows, whether its key is set, and its allowance left (from the ledger)."""
+    from .ledger import Ledger, RunBudget
+    from .pool import Pool
+    from .providers import known, manifests
+
+    cfg = _cfg()
+    store = open_store(cfg, False, db)
+    pool = Pool(cfg, store, Ledger(store, "list", RunBudget(0, 0, 0)))
+    pc = cfg.data.get("providers") or {}
+    roles = {e["name"]: "source" for e in pc.get("sources") or []}
+    for e in pc.get("finders") or []:
+        roles[e["name"]] = "source+finder" if e["name"] in roles else "finder"
+    from .providers.registry import _REGISTRY
+
+    ms = manifests()
+    for name in known():
+        cls = _REGISTRY.get(name)
+        if name.startswith("fixture") or name.endswith(("_finder", "_enrich")):
+            continue  # test adapters and role aliases (apollo_finder is the apollo account)
+        m = ms.get(name) or ms.get(getattr(cls, "manifest_name", "") or "")
+        key = "-" if not m else ("key set" if m.key() else f"{m.key_env} missing")
+        allow = pool.allowance(m.name).summary() if m else ""
+        typer.echo(f"{name:16} {','.join(m.capabilities) if m else 'local':22} {roles.get(name, 'not in pool'):14} {key:24} {allow}")
+
+
+@provider_app.command("new")
+@_guard
+def provider_new(name: str, capability: str = typer.Option("finder", "--capability", help="finder | source | enrich")) -> None:
+    """Write a manifest, an empty fixtures folder and a contract test for a new provider."""
+    from .providers.tools import scaffold
+
+    if capability not in ("finder", "source", "enrich"):
+        raise ConfigError("--capability must be finder, source or enrich")
+    for p in scaffold(name, capability, _cfg().root):
+        typer.echo(f"wrote {p}")
+    typer.echo(f"next: fill in providers/{name}.yaml, then `autonet provider record {name} --first … --last … --domain …`")
+
+
+@provider_app.command("record")
+@_guard
+def provider_record(
+    name: str,
+    first: str = typer.Option(..., "--first", help="Someone the provider should find"),
+    last: str = typer.Option(..., "--last"),
+    domain: str = typer.Option(..., "--domain"),
+    company: str = typer.Option("", "--company"),
+) -> None:
+    """Save three real replies (found, not found, error) as fixtures. Uses up to 3 credits."""
+    from .providers.tools import record_case
+
+    inp = {"first_name": first, "last_name": last, "company": {"name": company or domain, "domain": domain}}
+    for kind, data, key in [("found", inp, None), ("not_found", {**inp, "first_name": "Zzyzx", "last_name": "Qwertyuiop"}, None),
+                            ("error", inp, "invalid-key-for-recording-0000")]:
+        case = record_case(name, kind, data, key)
+        typer.echo(f"{kind}: HTTP {[r['status'] for r in case['replies']]} -> {case['expect']}")
+    typer.echo(f"saved to tests/fixtures/providers/{name}/ · review the 'expect' blocks, then `autonet provider test {name}`")
+
+
+@provider_app.command("test")
+@_guard
+def provider_test(name: str) -> None:
+    """Run the shared contract tests against the recorded fixtures. Offline."""
+    from .providers.contract import run_contract
+
+    checks = run_contract(name)
+    for c in checks:
+        mark_ = "ok  " if c.ok else "FAIL"
+        typer.echo(f"{mark_} {c.case:24} {c.name}" + (f"  ({c.detail})" if not c.ok and c.detail else ""))
+    failed = sum(not c.ok for c in checks)
+    if failed:
+        typer.secho(f"{failed} check(s) failed", fg=typer.colors.RED)
+        raise typer.Exit(1)
+    typer.secho(f"{name}: all {len(checks)} checks passed", fg=typer.colors.GREEN)
+
+
+@provider_app.command("smoke")
+@_guard
+def provider_smoke() -> None:
+    """Live check against Hunter's test-api-key: validates parameters, returns dummy data, costs nothing."""
+    from .models import Company, Prospect
+    from .providers import EmailFinder, build
+    from .providers.hunter import API, TEST_KEY
+
+    f = build("hunter", EmailFinder, key=TEST_KEY)
+    r = f.find(Prospect("Alexis", "Ohanian", Company("Reddit", "reddit.com"), source="smoke"))
+    typer.echo(f"email-finder: {r.status} {r.email} score={r.score}")
+    v = f.reverify(r.email or "patrick@stripe.com", r.score)
+    typer.echo(f"email-verifier: {v.status} score={v.score}")
+    d = f.client.request("GET", f"{API}/domain-search", params={"domain": "stripe.com", "limit": 1})
+    typer.echo(f"domain-search: HTTP {d.status}, {len(((d.body or {}).get('data') or {}).get('emails') or [])} result(s)")
+    typer.secho("hunter adapter works against the live API", fg=typer.colors.GREEN)
+
+
+@eval_app.command("jev")
+@_guard
+def eval_jev_cmd(
+    cases: Path = typer.Option(Path("jev/eval/cases.jsonl"), "--cases"),
+    campaign: str = typer.Option("ib-alumni-fall26", "--campaign"),
+) -> None:
+    """How often Jev's pick matches your labels, and whether its probabilities hold up."""
+    from .compose import load_templates as _lt
+    from .jev import JevClient, JevSelector, eval_jev, load_cases
+
+    cfg = _cfg()
+    path = cfg.resolve(cases)
+    if not path.is_file():
+        raise ConfigError(f"{path} not found; start from jev/eval/cases.example.jsonl (30+ hand-labeled cases)")
+    camp = load_campaign(resolve_campaign_path(cfg.root, campaign))
+    jcfg = cfg["jev"]
+    route = jcfg.get("provider", "typesafe")
+    if route in (None, False, "off"):
+        raise ConfigError("jev.provider is off in config.yaml")
+    sel = JevSelector(JevClient(route, jcfg.get("model")), camp, float(jcfg.get("min_confidence", 0.6)))
+    templates = _lt(cfg.path("templates"))
+    out = eval_jev(sel, load_cases(path), [templates[t] for t in camp["templates"]["allowed"]],
+                   camp.targeting.get("schools", []), camp.sender.get("past_companies", []))
+    for r in out["rows"]:
+        hit = "✓" if r["pick"] == r["label"] else "✗"
+        conf = f"{r['confidence']:.2f}" if r["confidence"] is not None else "  - "
+        typer.echo(f"{hit} {r['name']:24} label={r['label']:20} pick={r['pick']:20} {conf} ({r['selector']})")
+    if out["agreement"] is None:
+        raise DataError("Jev answered none of the cases; check the key and route")
+    typer.echo(f"\nagreement {out['agreement']:.0%} on {out['answered_by_jev']} of {out['cases']} cases")
+    for bucket, (rate, n) in out["calibration"].items():
+        typer.echo(f"  picks at {bucket}: {rate:.0%} matched ({n})")
+    if out["cases"] < 30:
+        typer.secho(f"only {out['cases']} cases; the spec asks for 30+ before trusting this", fg=typer.colors.YELLOW)
+    gate = out["agreement"] >= 0.85
+    typer.secho("ready for scheduled runs (≥85%)" if gate else "keep reviewing picks by hand (<85%)",
+                fg=typer.colors.GREEN if gate else typer.colors.YELLOW)
 
 
 def main() -> None:  # pragma: no cover

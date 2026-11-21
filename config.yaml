@@ -8,8 +8,24 @@ paths:
   signatures: signatures.yaml
 
 jev:
-  provider: off                   # off = rules-based fallback (milestone 1); typesafe | openrouter | cloudflare in milestone 2
+  provider: typesafe              # typesafe | openrouter | cloudflare | off (= rules fallback only)
+  model: jev-latest               # openrouter: typesafe/jev-1.14 · cloudflare: typesafe/jev
+  # pin_version: jev-1.13.0       # once picks look right, so a jev-latest update can't change them silently
   min_confidence: 0.6
+  timeout: 10
+
+# Provider pool (section 4). Every provider you have a free account with, treated as one pool.
+# A provider without its key in the environment is skipped and named in the run report.
+providers:
+  pace: even                      # even = spread each allowance over the days left; burst = spend as needed
+  reserve: 5                      # credits per provider held back for manual lookups
+  sources:                        # Stage 1: tried in order until the run has enough new people
+    - { name: pdl,     monthly: 100 }               # 1 credit per record returned
+    - { name: apollo,  monthly: 75 }                # search is free; 1 credit to enrich each person
+  finders:                        # Stage 3: tried in order for each person until one passes
+    - { name: hunter,  monthly: 50 }                # 1 per address found, 0.5 per verification, misses free
+    - { name: prospeo, monthly: 75 }
+    - { name: apollo,  monthly: 75 }                # same allowance as the apollo source above
 
 limits:
   daily_draft_cap: 25             # across all campaigns

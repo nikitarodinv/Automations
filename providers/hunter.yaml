@@ -1,0 +1,20 @@
+# Hunter: Email Finder, Email Verifier, Domain Search. Code: autonet/providers/hunter.py
+# Docs: https://hunter.io/api-documentation/v2 (checked 2026-11-21)
+name: hunter
+docs: https://hunter.io/api-documentation/v2
+terms_checked: true
+capabilities: [finder, source]
+auth: { type: header, name: X-API-KEY, env: HUNTER_API_KEY }   # header, never the URL
+free_plan:
+  monthly: 50                      # credits, shared across all Hunter tools
+  unit: credit
+  resets: calendar_month
+  balance:                         # GET /v2/account is free; its number beats the ledger's
+    method: GET
+    url: https://api.hunter.io/v2/account
+    field: data.requests.credits.remaining          # present when the team has one credit pool
+    fallback_field: data.requests.searches.remaining
+    reset_field: data.reset_date
+rate_limit: { per_second: 5, per_minute: 300 }      # Hunter allows 15/s, 500/min; we stay well below
+# Hunter's table: 403 = rate limit, 429 = usage limit, 451 = person asked not to be processed.
+errors: { "401": auth, "403": transient, "404": not_found, "429": quota, "451": claimed, "222": ok, "5xx": transient, "400": data }

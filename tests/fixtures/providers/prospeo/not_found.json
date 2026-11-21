@@ -1,0 +1,25 @@
+{
+  "role": "finder",
+  "kind": "not_found",
+  "input": {
+    "first_name": "Jordan",
+    "last_name": "Lee",
+    "company": {
+      "name": "Evercore",
+      "domain": "evercore.com"
+    }
+  },
+  "replies": [
+    {
+      "status": 400,
+      "json": {
+        "error": true,
+        "error_code": "NO_MATCH"
+      }
+    }
+  ],
+  "expect": {
+    "status": "not_found",
+    "credits": 0
+  }
+}

@@ -58,8 +58,11 @@ research:
 
 phrase_bank: phrases/networking.yaml
 
-# Milestone 1 real runs read a list you hold (your own CSV, or LinkedIn's Connections.csv export).
-# `source: pool` (PDL, Apollo, Hunter) arrives in milestone 2. --dry-run ignores this and uses fixtures.
+# Where people come from. --dry-run ignores this and uses fixtures.
+#   pool          every provider in config.yaml providers.sources whose key is set (PDL, then Apollo)
+#   pdl | apollo | hunter_domain   one provider
+#   csv           a list you hold: source_options: { path: lists/contacts.csv } (LinkedIn's Connections.csv works)
+#   urls          LinkedIn profile URLs: source_options: { urls: [...] } or { path: lists/urls.txt }
 source: csv
 source_options:
   path: lists/contacts.csv         # see lists/example_contacts.csv for the columns

@@ -2,7 +2,7 @@
 name: autonetworker
 description: Draft personalized networking emails for a saved campaign. Finds matching people, picks a template, finds emails, and saves drafts for review. Never sends. Use for /autonetworker or when asked to draft networking emails.
 user-invocable: true
-metadata: {"openclaw": {"requires": {"bins": ["uv"]}}}
+metadata: {"openclaw": {"requires": {"bins": ["uv"], "env": ["HUNTER_API_KEY", "TYPESAFE_API_KEY"]}, "primaryEnv": "HUNTER_API_KEY"}}
 ---
 # Autonetworker
 
@@ -11,7 +11,10 @@ Run every command with exec: `uv run --project ~/Autonetworker/Automations auton
 Commands: `run <campaign> [--limit N] [--dry-run]`, `review [--full]`, `note <draft_id> "<sentence>"`,
 `deliver [campaign]`, `deliver --ack <file>`, `mark-sent <id>` / `mark-sent --all-delivered`, `mark-skip <id>`,
 `suppress <email>`, `set-email <campaign> <prospect_id> <email>`,
-`pick-template <campaign> <prospect_id> <template>`, `status`, `validate <file>`, `lint phrases`.
+`pick-template <campaign> <prospect_id> <template>`, `status`, `validate <file>`, `lint phrases`,
+`run <campaign> --estimate` (worst-case spend, spends nothing), `provider list` (keys and credits left), `ledger`.
+
+Before a first real run of a campaign, run `run <campaign> --estimate` and show the user the result.
 
 After `run`: if the campaign sets `review_before_delivery: true`, post the review
 queue (`review --full`) and stop until the user runs `deliver`.

@@ -1,0 +1,42 @@
+# Prospeo: Enrich Person, described entirely here (no Python). Docs checked 2026-11-21:
+# https://prospeo.io/api-docs/enrich-person . Errors come back as HTTP 400 with an error_code.
+# The docs only show the VERIFIED email status; anything else maps to unknown (goes to review).
+# Prospeo gives no score, so VERIFIED counts as 85: above min_score 80, below the catch-all bar.
+name: prospeo
+docs: https://prospeo.io/api-docs/enrich-person
+terms_checked: true
+capabilities: [finder]
+auth: { type: header, name: X-KEY, env: PROSPEO_API_KEY }
+free_plan:
+  monthly: 75
+  unit: credit
+  resets: calendar_month
+rate_limit: { per_second: 2, per_minute: 60 }
+errors: { "429": transient, "5xx": transient, "400": data }
+error_codes:
+  NO_MATCH: not_found
+  INSUFFICIENT_CREDITS: quota
+  INVALID_API_KEY: auth
+  INVALID_DATAPOINTS: data
+  INVALID_REQUEST: data
+  INTERNAL_ERROR: transient
+finder:
+  request:
+    method: POST
+    url: https://api.prospeo.io/enrich-person
+    json:
+      only_verified_email: false
+      data:
+        first_name: "{{first_name}}"
+        last_name: "{{last_name}}"
+        company_name: "{{company.name}}"
+        company_website: "{{company.domain}}"
+        linkedin_url: "{{linkedin_url}}"
+  response:
+    email: person.email.email
+    status: person.email.status
+    found_when: person.email.revealed
+  status_map: { VERIFIED: valid }
+  status_default: unknown
+  status_scores: { valid: 85 }
+  cost: { found: 1, miss: 0 }

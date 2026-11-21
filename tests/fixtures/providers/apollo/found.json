@@ -1,0 +1,62 @@
+{
+  "role": "finder",
+  "kind": "found",
+  "input": {
+    "first_name": "Jordan",
+    "last_name": "Lee",
+    "company": {
+      "name": "Evercore",
+      "domain": "evercore.com"
+    }
+  },
+  "replies": [
+    {
+      "status": 200,
+      "json": {
+        "person": {
+          "id": "672c91d4a7be42000184f2c9",
+          "first_name": "Jordan",
+          "last_name": "Lee",
+          "name": "Jordan Lee",
+          "linkedin_url": "http://www.linkedin.com/in/jordan-lee",
+          "title": "Associate",
+          "headline": "Investment Banking Associate at Evercore",
+          "email": "jordan.lee@evercore.com",
+          "email_status": "verified",
+          "match_confidence": "high",
+          "city": "New York",
+          "state": "New York",
+          "country": "United States",
+          "employment_history": [
+            {
+              "organization_name": "Evercore",
+              "title": "Associate",
+              "current": true,
+              "start_date": "2023-07-01",
+              "end_date": null
+            },
+            {
+              "organization_name": "Houlihan Lokey",
+              "title": "Analyst",
+              "current": false,
+              "start_date": "2021-07-01",
+              "end_date": "2023-06-01"
+            }
+          ],
+          "organization": {
+            "id": "o1",
+            "name": "Evercore",
+            "website_url": "https://www.evercore.com",
+            "primary_domain": "evercore.com"
+          }
+        }
+      }
+    }
+  ],
+  "expect": {
+    "email": "jordan.lee@evercore.com",
+    "status": "valid",
+    "score": 85,
+    "credits": 1
+  }
+}

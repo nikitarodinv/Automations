@@ -213,8 +213,8 @@ def test_crash_mid_stage_loses_nothing(cfg, monkeypatch):
     assert len({d["prospect_id"] for d in drafts(ctx)}) == 10
 
 
-def test_unimplemented_source_fails_before_spending(cfg, campaign_file):
-    with pytest.raises(ConfigError, match="milestone 2"):
+def test_pool_without_keys_fails_before_spending(cfg, campaign_file):
+    with pytest.raises(ConfigError, match="PDL_API_KEY is not set"):
         run_campaign(cfg, campaign_file(source="pool"))
 
 

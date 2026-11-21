@@ -45,7 +45,10 @@ class Prospect:
     summary: str = ""
     team: str | None = None
     prior_contact: bool = False
-    known_email: str | None = None  # an address the source already carries (csv, hunter_domain)
+    known_email: str | None = None  # an address the source already carries (csv, hunter_domain, apollo)
+    known_email_score: int | None = None     # None = you supplied it (csv): accepted as is
+    known_email_status: str | None = None    # valid | accept_all | unknown | invalid
+    known_email_provider: str | None = None
     fetched_at: str = ""
     match: dict[str, Any] = field(default_factory=dict)
 
@@ -83,6 +86,12 @@ class Prospect:
         return cls(company=Company(**comp), **d)
 
 
+def linkedin_handle(url: str | None) -> str | None:
+    if not url or "/in/" not in url:
+        return None
+    return url.rstrip("/").split("/in/", 1)[1].split("/")[0] or None
+
+
 @dataclass
 class EmailResult:
     """Shared finder result format (section 4, pool rule 6)."""
@@ -94,3 +103,6 @@ class EmailResult:
     sources: list[dict[str, Any]] = field(default_factory=list)
     credits_used: float = 0.0
     raw: dict[str, Any] = field(default_factory=dict)
+    # Fields the finder learned about the person (e.g. Hunter given only a LinkedIn handle).
+    person: dict[str, Any] = field(default_factory=dict)
+    verified_with: str | None = None

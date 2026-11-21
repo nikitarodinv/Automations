@@ -1,0 +1,69 @@
+{
+  "role": "finder",
+  "kind": "found",
+  "input": {
+    "first_name": "Jordan",
+    "last_name": "Lee",
+    "company": {
+      "name": "Evercore",
+      "domain": "evercore.com"
+    }
+  },
+  "replies": [
+    {
+      "status": 200,
+      "json": {
+        "data": {
+          "first_name": "Jordan",
+          "last_name": "Lee",
+          "email": "jordan.lee@evercore.com",
+          "score": 71,
+          "domain": "evercore.com",
+          "accept_all": false,
+          "position": "Associate",
+          "twitter": null,
+          "linkedin_url": null,
+          "phone_number": null,
+          "company": "Evercore",
+          "provenance": "found",
+          "sources": [
+            {
+              "domain": "example.org",
+              "uri": "https://example.org/forum-2026/speakers",
+              "extracted_on": "2026-09-18",
+              "last_seen_on": "2026-11-01",
+              "still_on_page": true
+            }
+          ],
+          "verification": {
+            "date": null,
+            "status": "unknown"
+          }
+        }
+      }
+    },
+    {
+      "status": 202,
+      "json": {
+        "data": {}
+      }
+    },
+    {
+      "status": 200,
+      "json": {
+        "data": {
+          "status": "valid",
+          "score": 91,
+          "email": "jordan.lee@evercore.com",
+          "accept_all": false
+        }
+      }
+    }
+  ],
+  "expect": {
+    "email": "jordan.lee@evercore.com",
+    "status": "valid",
+    "score": 91,
+    "credits": 1.5
+  }
+}

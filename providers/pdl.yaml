@@ -1,0 +1,13 @@
+# People Data Labs: Person Search (source) and Person Enrichment (enrich, used by `source: urls`).
+# Code: autonet/providers/pdl.py. Docs checked 2026-11-21.
+name: pdl
+docs: https://docs.peopledatalabs.com/docs/reference-person-search-api
+terms_checked: true
+capabilities: [source, enrich]
+auth: { type: header, name: X-Api-Key, env: PDL_API_KEY }
+free_plan:
+  monthly: 100                     # 100 search + 100 enrichment credits; 1 credit per record returned
+  unit: record
+  resets: calendar_month
+rate_limit: { per_minute: 10 }     # default Person Search limit
+errors: { "401": auth, "402": quota, "404": not_found, "429": transient, "5xx": transient, "400": data }

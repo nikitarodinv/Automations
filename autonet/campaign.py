@@ -48,7 +48,7 @@ DEFAULTS: dict[str, Any] = {
 }
 
 # Implemented in milestone 1. Others validate but fail at run time with a clear message.
-IMPLEMENTED_SOURCES = {"csv"}
+IMPLEMENTED_SOURCES = {"pool", "apollo", "pdl", "hunter_domain", "csv", "urls"}
 IMPLEMENTED_DELIVERY = {"eml", "markdown", "outlook_draft"}
 
 
@@ -107,6 +107,8 @@ def parse_campaign(raw: dict[str, Any], path: Path | None = None) -> Campaign:
         extra.append(f"templates.fallback: '{data['templates']['fallback']}' is not in templates.allowed")
     if data["source"] == "csv" and not data["source_options"].get("path"):
         extra.append("source_options.path: required when source is csv")
+    if data["source"] == "urls" and not (data["source_options"].get("path") or data["source_options"].get("urls")):
+        extra.append("source_options: urls needs `urls: [...]` or `path:` to a file of LinkedIn URLs")
     if data["email"]["min_score_accept_all"] < data["email"]["min_score"]:
         extra.append("email.min_score_accept_all: should not be below email.min_score")
     if extra:

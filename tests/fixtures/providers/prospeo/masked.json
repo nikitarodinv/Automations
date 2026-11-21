@@ -1,0 +1,30 @@
+{
+  "role": "finder",
+  "kind": "not_found",
+  "input": {
+    "first_name": "Jordan",
+    "last_name": "Lee",
+    "company": {
+      "name": "Evercore",
+      "domain": "evercore.com"
+    }
+  },
+  "replies": [
+    {
+      "status": 200,
+      "json": {
+        "error": false,
+        "person": {
+          "email": {
+            "status": "VERIFIED",
+            "revealed": false,
+            "email": "jordan.*****@evercore.com"
+          }
+        }
+      }
+    }
+  ],
+  "expect": {
+    "status": "not_found"
+  }
+}

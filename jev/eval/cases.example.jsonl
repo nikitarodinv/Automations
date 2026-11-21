@@ -1,0 +1,6 @@
+// Hand-labeled prospects for `autonet eval jev`. Copy to cases.jsonl and grow it to 30+ of your own.
+// label = the template you would pick (or "none").
+{"label": "alumni_coffee_chat", "prospect": {"first_name": "Jordan", "last_name": "Lee", "company": {"name": "Evercore", "domain": "evercore.com"}, "current_title": "Associate", "seniority": "junior", "headline": "Investment Banking Associate at Evercore", "education": [{"school": "Your University"}]}}
+{"label": "industry_question", "prospect": {"first_name": "Marcus", "last_name": "Chen", "company": {"name": "Goldman Sachs", "domain": "gs.com"}, "current_title": "Vice President", "seniority": "mid", "headline": "Vice President, Leveraged Finance", "education": [{"school": "New York University"}]}}
+{"label": "referral_ask", "prior_contact": true, "prospect": {"first_name": "Sam", "last_name": "Rivera", "company": {"name": "Lazard", "domain": "lazard.com"}, "current_title": "Analyst", "seniority": "entry", "headline": "M&A Analyst at Lazard", "education": [{"school": "Other College"}]}}
+{"label": "none", "prospect": {"first_name": "Kim", "last_name": "Ortiz", "company": {"name": "Lazard", "domain": "lazard.com"}, "current_title": "Office Manager", "seniority": "mid", "headline": "Office Manager at Lazard", "education": []}}

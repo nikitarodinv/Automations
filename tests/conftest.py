@@ -11,6 +11,25 @@ from autonet.models import Prospect
 
 REPO = Path(__file__).resolve().parents[1]
 CAMPAIGN = REPO / "campaigns" / "ib-alumni-fall26.yaml"
+KEY_ENVS = ["HUNTER_API_KEY", "PDL_API_KEY", "APOLLO_API_KEY", "PROSPEO_API_KEY", "TYPESAFE_API_KEY",
+            "OPENROUTER_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"]
+
+
+@pytest.fixture(autouse=True)
+def _no_real_network_or_keys(monkeypatch):
+    """Tests never see your real keys, never wait, and fail on any request they didn't mock."""
+    import httpx
+
+    from autonet import http
+
+    for k in KEY_ENVS:
+        monkeypatch.delenv(k, raising=False)
+
+    def refuse(request):
+        raise AssertionError(f"unmocked HTTP request: {request.method} {request.url}")
+
+    monkeypatch.setattr(http, "TRANSPORT", httpx.MockTransport(refuse))
+    monkeypatch.setattr(http, "SLEEP", lambda s: None)
 
 
 @pytest.fixture

@@ -1,0 +1,30 @@
+{
+  "role": "finder",
+  "kind": "claimed",
+  "input": {
+    "first_name": "Jordan",
+    "last_name": "Lee",
+    "company": {
+      "name": "Evercore",
+      "domain": "evercore.com"
+    }
+  },
+  "replies": [
+    {
+      "status": 451,
+      "json": {
+        "errors": [
+          {
+            "id": "claimed_email",
+            "code": 451,
+            "details": "We have been requested not to process personal identifiable information linked to this person."
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "status": "claimed",
+    "credits": 0
+  }
+}

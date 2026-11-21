@@ -1,8 +1,7 @@
 """Stage 2: template selection (section 5).
 
-Milestone 1 ships the rules selector, which is also Jev's fallback when Jev is off or
-unreachable. `apply_jev_policy` holds the code-side decision rules for Jev's typed answers,
-so the milestone 2 client only has to make the HTTP call."""
+The rules selector is Jev's fallback when Jev is off or unreachable. `apply_jev_policy` holds
+the code-side decision rules for Jev's typed answers; the HTTP client lives in jev.py."""
 
 from __future__ import annotations
 
@@ -90,6 +89,20 @@ class RulesSelector:
 
     name = "rules"
     version = "rules-v1"
+
+    def select(self, store: Any, campaign_id: str, sc: SelectionContext, allowed: list[Template], fallback: str,
+               ledger: Any = None) -> Decision:
+        from .compose import catalog_hash
+
+        chash = catalog_hash(allowed, {"fallback": fallback, "selector": self.version})
+        cached = store.get_decision(sc.prospect.prospect_id, chash, self.version)
+        if cached and cached["campaign_id"] == campaign_id:
+            r = cached["reason"] or {}
+            return Decision(r.get("route", "continue"), cached["template"], cached["selector"], cached["confidence"],
+                            r, cached["hints"], r.get("review_reason"))
+        d = self.decide(sc, allowed, fallback)
+        store.save_decision(campaign_id, sc.prospect.prospect_id, chash, self.version, d.as_record())
+        return d
 
     def decide(self, sc: SelectionContext, allowed: list[Template], fallback: str) -> Decision:
         elig = {t.id: t for t in eligible_templates(allowed, sc)}

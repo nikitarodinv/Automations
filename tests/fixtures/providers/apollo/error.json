@@ -1,0 +1,21 @@
+{
+  "role": "finder",
+  "kind": "error",
+  "input": {
+    "first_name": "Jordan",
+    "last_name": "Lee",
+    "company": {
+      "name": "Evercore",
+      "domain": "evercore.com"
+    }
+  },
+  "replies": [
+    {
+      "status": 401,
+      "json": "Invalid API key. See https://docs.apollo.io/reference/authentication for how to authenticate."
+    }
+  ],
+  "expect": {
+    "error": "auth"
+  }
+}

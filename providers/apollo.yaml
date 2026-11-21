@@ -1,0 +1,14 @@
+# Apollo: People API Search (0 credits, but last names are hidden) + People Enrichment (1 credit,
+# full record and work email). Used as a source and as a finder. Code: autonet/providers/apollo.py
+# Docs checked 2026-11-21. The key needs access to api/v1/mixed_people/api_search, or be a master key.
+name: apollo
+docs: https://docs.apollo.io/reference/people-api-search
+terms_checked: true
+capabilities: [source, finder, enrich]
+auth: { type: header, name: x-api-key, env: APOLLO_API_KEY }
+free_plan:
+  monthly: 75
+  unit: credit
+  resets: calendar_month
+rate_limit: { per_second: 2, per_minute: 10 }       # people/match allows 600/hour
+errors: { "401": auth, "403": auth, "422": data, "429": transient, "5xx": transient, "400": data }

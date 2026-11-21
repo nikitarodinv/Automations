@@ -52,6 +52,11 @@ class Ledger:
             args += providers
         return self.store.db.execute(q, args).fetchone()[0]
 
+    def total_since(self, provider: str, since_iso: str, column: str = "credits") -> float:
+        return self.store.db.execute(
+            f"SELECT COALESCE(SUM({column}),0) FROM ledger WHERE provider=? AND at>=?", (provider, since_iso)
+        ).fetchone()[0]
+
     def month_total(self, column: str, provider: str) -> float:
         start = now_utc().replace(day=1, hour=0, minute=0, second=0)
         return self.store.db.execute(

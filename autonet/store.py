@@ -136,6 +136,14 @@ CREATE TABLE IF NOT EXISTS runs (
   counts      TEXT,
   errors      TEXT
 );
+CREATE TABLE IF NOT EXISTS source_cursors (
+  campaign_id TEXT NOT NULL,
+  provider    TEXT NOT NULL,
+  key         TEXT NOT NULL,
+  cursor      TEXT,
+  updated_at  TEXT NOT NULL,
+  PRIMARY KEY (campaign_id, provider, key)
+);
 CREATE TABLE IF NOT EXISTS ledger (
   run_id    TEXT NOT NULL,
   seq       INTEGER NOT NULL,
@@ -308,6 +316,14 @@ class Store:
         ).fetchone()
         return self._decision(row)
 
+    def cached_decision(self, pid: str, catalog_hash: str, version: str | None = None) -> dict[str, Any] | None:
+        q = "SELECT * FROM template_decisions WHERE prospect_id=? AND catalog_hash=?"
+        args: list[Any] = [pid, catalog_hash]
+        if version:
+            q += " AND jev_version=?"
+            args.append(version)
+        return self._decision(self.db.execute(q + " ORDER BY decided_at DESC, rowid DESC LIMIT 1", args).fetchone())
+
     def latest_decision(self, campaign_id: str, pid: str) -> dict[str, Any] | None:
         row = self.db.execute(
             """SELECT * FROM template_decisions WHERE campaign_id=? AND prospect_id=?
@@ -359,7 +375,7 @@ class Store:
 
     def accepted_email(self, p: Prospect) -> dict[str, Any] | None:
         lk = self.get_lookup(p.first_name, p.last_name, p.company.domain or p.company.normalized)
-        if lk and lk["decision"] in ("accepted", "accepted_catch_all", "manual"):
+        if lk and lk["decision"] in ("accepted", "accepted_catch_all", "confirmed", "manual"):
             return lk
         return None
 
@@ -465,6 +481,19 @@ class Store:
                 "INSERT OR REPLACE INTO phrase_usage VALUES (?,?,?,?,?,?)",
                 (pid, draft_id, campaign_id, category, domain, now),
             )
+
+    # ---------- source cursors (paging continues across runs) ----------
+    def get_cursor(self, campaign_id: str, provider: str, key: str) -> str | None:
+        row = self.db.execute(
+            "SELECT cursor FROM source_cursors WHERE campaign_id=? AND provider=? AND key=?", (campaign_id, provider, key)
+        ).fetchone()
+        return row["cursor"] if row else None
+
+    def set_cursor(self, campaign_id: str, provider: str, key: str, value: str | None) -> None:
+        self.db.execute(
+            "INSERT OR REPLACE INTO source_cursors VALUES (?,?,?,?,?)", (campaign_id, provider, key, value, iso())
+        )
+        self.db.commit()
 
     # ---------- runs ----------
     def start_run(self, run_id: str, campaign_id: str, dry_run: bool) -> None:

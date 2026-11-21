@@ -7,7 +7,7 @@ from typing import Any
 
 from .models import EmailResult
 
-ACCEPTED = {"accepted", "accepted_catch_all", "manual"}
+ACCEPTED = {"accepted", "accepted_catch_all", "confirmed", "manual"}
 
 
 def decide(r: EmailResult, rules: dict[str, Any]) -> str:

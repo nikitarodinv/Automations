@@ -1,0 +1,20 @@
+{
+  "role": "source",
+  "kind": "error",
+  "limit": 5,
+  "replies": [
+    {
+      "status": 402,
+      "json": {
+        "status": 402,
+        "error": {
+          "type": "payment_required",
+          "message": "You have reached your account maximum (all matches have been used)."
+        }
+      }
+    }
+  ],
+  "expect": {
+    "error": "quota"
+  }
+}
